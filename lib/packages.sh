@@ -46,23 +46,51 @@ check_and_install_apt() {
 }
 
 main_essentials() {
+    log INFO "Installing essential development packages..."
+    local failed_packages=()
+    
+    # Check and install each package, tracking failures
 #   check_and_install_apt [name] [pkg-name]
-    check_and_install_apt git git-all
-    check_and_install_apt curl curl
-    check_and_install_apt wget wget
-    check_and_install_apt htop htop
-    check_and_install_apt tmux tmux
-    check_and_install_apt vim neovim
-    check_and_install_apt unzip unzip
-    check_and_install_apt tree tree
-    check_and_install_apt net-tools net-tools
-    check_and_install_apt ca-certificates ca-certificates
-    check_and_install_apt build-essential build-essential
+    check_and_install_apt git git-all || failed_packages+=("git")
+    check_and_install_apt curl curl || failed_packages+=("curl")
+    check_and_install_apt wget wget || failed_packages+=("wget")
+    check_and_install_apt htop htop || failed_packages+=("htop")
+    check_and_install_apt tmux tmux || failed_packages+=("tmux")
+    check_and_install_apt vim neovim || failed_packages+=("vim/neovim")
+    check_and_install_apt unzip unzip || failed_packages+=("unzip")
+    check_and_install_apt tree tree || failed_packages+=("tree")
+    check_and_install_apt net-tools net-tools || failed_packages+=("net-tools")
+    check_and_install_apt ca-certificates ca-certificates || failed_packages+=("ca-certificates")
+    check_and_install_apt build-essential build-essential || failed_packages+=("build-essential")
+    
+    # Report results
+    if [ ${#failed_packages[@]} -eq 0 ]; then
+        log INFO "All essential packages installed successfully"
+        return 0
+    else
+        log ERROR "Failed to install ${#failed_packages[@]} package(s): ${failed_packages[*]}"
+        echo "Warning: Some packages failed to install: ${failed_packages[*]}"
+        return 5
+    fi
 }
 
 networkingtools() {
-    check_and_install_apt ufw ufw
-    check_and_install_apt iproute2 iproute2
-    check_and_install_apt dnsutils dnsutils
-    check_and_install_apt nmap nmap
+    log INFO "Installing networking tools..."
+    local failed_packages=()
+    
+    check_and_install_apt ufw ufw || failed_packages+=("ufw")
+    check_and_install_apt iproute2 iproute2 || failed_packages+=("iproute2")
+    check_and_install_apt dnsutils dnsutils || failed_packages+=("dnsutils")
+    check_and_install_apt nmap nmap || failed_packages+=("nmap")
+    
+    # Report results
+    if [ ${#failed_packages[@]} -eq 0 ]; then
+        log INFO "All networking tools installed successfully"
+        return 0
+    else
+        log ERROR "Failed to install ${#failed_packages[@]} networking tool(s): ${failed_packages[*]}"
+        echo "Warning: Some networking tools failed to install: ${failed_packages[*]}"
+        return 5
+    fi
 }
+
