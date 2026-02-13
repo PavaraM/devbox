@@ -34,7 +34,7 @@ All script execution logs are stored in the `logs/` directory with timestamps. E
 
 ### Sample Log Output
 
-```
+``` log
 script started at Fri Feb 13 23:26:28 +0530 2026
 command: devbox --install
 ------------------------------
