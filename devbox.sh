@@ -14,14 +14,9 @@ echo "DevBox v1.0"
 echo "---------------------------"
 
 # Load logging functions first to ensure all actions are logged
-source ./lib/logging.sh
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/logging.sh"
 trap log_footer EXIT
-
-if [[ $EUID -ne 0 ]]; then #checks for root permision
-    echo "This script must be run as root"
-    log ERROR "No ROOT Permission."
-    exit 1
-fi
 
 #fuctions
 wrong_arg() {
@@ -37,7 +32,7 @@ no_arg() {
 pull_libraries() {  #function to load libraries and log the process
     log DEBUG "Loading libraries..."
     # The following libraries are essential for the script's functionality. Each library is sourced and checked for successful loading. If any library fails to load, an error is logged and the script exits with a specific code.
-    if source lib/packages.sh &>> $logfile; then
+    if source "$SCRIPT_DIR/lib/packages.sh" &>> $logfile; then
         log INFO "\"lib/packages.sh\" loaded successfully."
     else
         log ERROR "Failed to load \"lib/packages.sh\""
@@ -45,7 +40,7 @@ pull_libraries() {  #function to load libraries and log the process
         exit 4
     fi
 
-    if source lib/docker.sh; then
+    if source "$SCRIPT_DIR/lib/docker.sh"; then
         log INFO "\"lib/docker.sh\" loaded successfully."
     else
         log ERROR "Failed to load \"lib/docker.sh\""
@@ -64,21 +59,44 @@ installscript() {
 #    apt_update          #updating the system
 # commenting out apt update for now, because its a waste run this everytime we test. will uncomment it when the script is ready for production.
     main_essentials     #installing essential packages
-    docker_setup        #installing and setting up docker
-
 }
 
 if [ $# -eq 0 ]; then
     no_arg # if no arguments are provided, call the no_arg function to log the error and exit.
 fi
 
+case $1 in
+    --help)
+        echo "Usage: $0 [install|doctor|--help] [--plus-docker]"
+        echo "  install       Set up the development environment by installing essential packages and tools."
+        echo "  doctor        Run diagnostic checks to verify the health of the development environment (not implemented yet)."
+        echo "  --help          Display this help message and exit."
+        
+        echo "  --plus-docker   Optionally install Docker and Docker Compose during the setup process."
+        exit 0
+esac
+
+if [[ $EUID -ne 0 ]]; then #checks for root permision
+    echo "This script must be run as root"
+    log ERROR "No ROOT Permission."
+    exit 1
+fi
 case $1 in #handling arguments
-    --install)
+    install)
         # This case handles the installation process. When the user runs the script with the "--install" argument, it triggers the "installscript" function, which is responsible for setting up the development environment by calling various functions to load libraries, update the system, install essential packages, and set up Docker.
         installscript
     ;;
-    --doctor)
+    doctor)
         
+    ;;
+    --help)
+        echo "Usage: $0 [install|doctor|--help] [--plus-docker]"
+        echo "  install       Set up the development environment by installing essential packages and tools."
+        echo "  doctor        Run diagnostic checks to verify the health of the development environment (not implemented yet)."
+        echo "  --help          Display this help message and exit."
+        
+        echo "  --plus-docker   Optionally install Docker and Docker Compose during the setup process."
+        exit 0
     ;;
     *)
         # This case handles any invalid arguments passed to the script. If the user provides an argument that does not match the expected options (like "--install" or "--doctor"), the "wrong_arg" function is called, which logs an error message and exits the script with a specific code indicating an invalid argument.
@@ -86,6 +104,16 @@ case $1 in #handling arguments
     ;;
 esac
 
+if [[ $# -ge 2 ]]; then
+    case $2 in
+        --plus-docker)
+            docker_setup
+        ;;
+        *)
+            wrong_arg "$2"
+        ;;
+    esac
+fi
 
 exit 0      # Exit with success code after completing the script without errors.
 
