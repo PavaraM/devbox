@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 start_time=$(date +%s%3N)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 #Devbox V1.0
 #------------------
@@ -9,12 +10,16 @@ start_time=$(date +%s%3N)
 #Initial Variables
 timestamp=$(date '+%Y-%m-%d')
 
+#Checks if libraries are executable.
+if [ ! -x "$SCRIPT_DIR/lib/logging.sh" ] || [ ! -x "$SCRIPT_DIR/lib/packages.sh" ] || [ ! -x "$SCRIPT_DIR/lib/docker.sh" ]; then
+    chmod +x "$SCRIPT_DIR/lib/logging.sh" "$SCRIPT_DIR/lib/packages.sh" "$SCRIPT_DIR/lib/docker.sh"
+fi
+
 #Header
 echo "DevBox v1.0"
 echo "---------------------------"
 
 # Load logging functions first to ensure all actions are logged
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/logging.sh"
 trap log_footer EXIT
 
@@ -87,33 +92,20 @@ case $1 in #handling arguments
         installscript
     ;;
     doctor)
-        
-    ;;
-    --help)
-        echo "Usage: $0 [install|doctor|--help] [--plus-docker]"
-        echo "  install       Set up the development environment by installing essential packages and tools."
-        echo "  doctor        Run diagnostic checks to verify the health of the development environment (not implemented yet)."
-        echo "  --help          Display this help message and exit."
-        
-        echo "  --plus-docker   Optionally install Docker and Docker Compose during the setup process."
-        exit 0
+        # This case is a placeholder for a future implementation of a diagnostic tool. When the user runs the script with the "--doctor" argument, it currently does nothing, but it can be extended in the future to include checks for the health and configuration of the development environment, such as verifying that essential packages are installed and that Docker is running correctly.
     ;;
     *)
         # This case handles any invalid arguments passed to the script. If the user provides an argument that does not match the expected options (like "--install" or "--doctor"), the "wrong_arg" function is called, which logs an error message and exits the script with a specific code indicating an invalid argument.
         wrong_arg "$1"
     ;;
 esac
-
-if [[ $# -ge 2 ]]; then
-    case $2 in
-        --plus-docker)
-            docker_setup
-        ;;
-        *)
-            wrong_arg "$2"
-        ;;
+shift # Shift the arguments to process any additional options like "--plus-docker"
+for arg in "$@"; do
+    case "$arg" in
+        --plus-docker) docker_setup ;;
+        *) wrong_arg "$arg" ;;
     esac
-fi
+done
 
 exit 0      # Exit with success code after completing the script without errors.
 
