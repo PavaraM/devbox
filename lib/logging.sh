@@ -8,6 +8,11 @@ mkdir -p "$SCRIPT_DIR/logs/archive/apt/"
 
 logfile="$SCRIPT_DIR/logs/devbox_$TIMESTAMP.log"
 
+# Set ownership of logs to the invoking user if running with sudo
+if [[ -n "$SUDO_USER" ]]; then
+    chown -R "$SUDO_USER:$SUDO_USER" "$SCRIPT_DIR/logs/"
+fi
+
 #archive old logs (keep last 7 days)
 find "$SCRIPT_DIR/logs/" -type f -name "devbox_*.log" -mtime +7 -exec mv {} "$SCRIPT_DIR/logs/archive/" \;
 find "$SCRIPT_DIR/logs/apt/" -type f -name "apt_*.log" -mtime +7 -exec mv {} "$SCRIPT_DIR/logs/archive/apt/" \;
@@ -20,6 +25,11 @@ echo "user: $USER (SUDO_USER: ${SUDO_USER:-none})" >> "$logfile"
 echo "------------------------------" >> "$logfile"
 echo " " >> "$logfile" 
 
+# Set ownership of the new log file
+if [[ -n "$SUDO_USER" ]]; then
+    chown "$SUDO_USER:$SUDO_USER" "$logfile"
+fi
+
 log_footer() {
     local exit_code=$?
     END_TIME=$(date +%s%3N)
@@ -29,7 +39,11 @@ log_footer() {
     echo "------------------------------" >> "$logfile"
     echo "Script ended at $(date) exit_code=$exit_code duration=${duration_s}s" >> "$logfile"
     echo "==============================" >> "$logfile"
-    echo " " >> $logfile
+    echo " " >> "$logfile"
+    # Fix ownership one final time (in case any logs were created as root)
+    if [[ -n "$SUDO_USER" ]]; then
+        chown -R "$SUDO_USER:$SUDO_USER" "$SCRIPT_DIR/logs/"
+    fi
 }
 
 log() {
