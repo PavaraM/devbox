@@ -3,7 +3,7 @@
 **A lightweight, modular development environment setup tool for Ubuntu systems.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/yourusername/devbox)
+[![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/PavaraM/devbox)
 [![Shell](https://img.shields.io/badge/shell-bash-green.svg)](https://www.gnu.org/software/bash/)
 
 DevBox automates the tedious setup of development environments by installing essential tools, configuring Docker, and providing diagnostic capabilities—all through a clean, modular bash script architecture.
@@ -18,6 +18,7 @@ DevBox automates the tedious setup of development environments by installing ess
 📊 **Comprehensive Logging** - Detailed logs with timestamps and duration tracking  
 🛡️ **Robust Error Handling** - Granular exit codes for easy debugging  
 ⚡ **Idempotent Operations** - Safe to run multiple times  
+📁 **User-Accessible Logs** - Logs owned by your user, not root  
 
 ---
 
@@ -25,7 +26,7 @@ DevBox automates the tedious setup of development environments by installing ess
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/devbox.git
+git clone https://github.com/PavaraM/devbox.git
 cd devbox
 
 # Make the script executable
@@ -58,9 +59,15 @@ devbox/
 │   ├── logging.sh      # Logging utilities
 │   └── packages.sh     # Package management
 ├── logs/               # Execution logs (auto-created)
+│   ├── devbox_*.log    # Main script logs
+│   ├── apt/            # Per-package installation logs
+│   │   └── apt_*.log   
+│   └── archive/        # Archived logs (7+ days old)
+│       ├── devbox_*.log
+│       └── apt/
 └── docs/
     ├── README.md       # This file
-    └── DEBUGGING.md    # Debugging info
+    └── DEBUGGING.md    # Debugging guide
 ```
 
 ---
@@ -78,7 +85,7 @@ sudo ./devbox.sh install
 
 **Installs:**
 - **Version Control**: git
-- **Network Tools**: curl, wget, net-tools, ca-certificates
+- **Network Tools**: curl, wget, net-tools, ca-certificates, ufw, iproute2, dnsutils, nmap
 - **System Utilities**: htop, tmux, tree, unzip
 - **Development**: neovim, build-essential
 
@@ -139,19 +146,29 @@ Every execution creates a timestamped log file in the `logs/` directory:
 
 ```
 logs/devbox_2026-02-14.log
+logs/apt/apt_2026-02-14-git.log
+logs/apt/apt_2026-02-14-curl.log
 ```
+
+**Features:**
+- 📝 **Main log** - Overall script execution
+- 📦 **Per-package APT logs** - Individual installation details
+- 🗄️ **Auto-archival** - Logs older than 7 days moved to `archive/`
+- 👤 **User ownership** - All logs owned by your user, not root
 
 **Log Format:**
 ```
-script started at Thu Feb 14 10:30:45 UTC 2026
+script started at Sat Feb 14 01:45:38 +0530 2026
 command: devbox install --plus-docker
+system: Linux OBSIDIAN 6.17.0-14-generic ...
+user: root (SUDO_USER: pavara)
 ------------------------------
-10:30:45 [INFO] Script started with command: install
-10:30:46 [DEBUG] Checking if git is installed...
-10:30:47 [INFO] git installation successful
+2026-02-14 01:45:38 [INFO] Script started with command: install
+2026-02-14 01:45:38 [DEBUG] Checking if git is installed...
+2026-02-14 01:45:39 [INFO] git installation successful
 ...
 ------------------------------
-Script ended at Thu Feb 14 10:35:22 UTC 2026 exit_code=0 duration=277.543s
+Script ended at Sat Feb 14 01:45:40 +0530 2026 exit_code=0 duration=2.192s
 ==============================
 ```
 
@@ -173,20 +190,30 @@ main_essentials() {
 }
 ```
 
-### Network Tools
+### Disable Networking Tools
 
-The `Networkingtools()` function is available but not enabled by default. To use it, modify `devbox.sh`:
+The `networkingtools()` function is enabled by default. To disable it, modify `devbox.sh`:
 
 ```bash
 run_install() {
     log INFO "Starting installation process"
     main_essentials
-    Networkingtools  # Add this line
+    # networkingtools  # Comment this line to skip
     log INFO "Installation completed successfully"
 }
 ```
 
-This installs: `ufw`, `iproute2`, `dnsutils`, `nmap`
+### Fix Log Ownership
+
+If logs were created as root, use the included utility:
+
+```bash
+# Check ownership
+./fix-logs-ownership.sh
+
+# Fix it
+sudo ./fix-logs-ownership.sh
+```
 
 ---
 
@@ -199,6 +226,7 @@ This installs: `ufw`, `iproute2`, `dnsutils`, `nmap`
 3. **Defensive Programming** - Extensive error checking and logging
 4. **Idempotency** - Safe to re-run without side effects
 5. **Transparency** - Detailed logging of all operations
+6. **User-Friendly** - Logs accessible without sudo
 
 ### Library Overview
 
@@ -206,10 +234,14 @@ This installs: `ufw`, `iproute2`, `dnsutils`, `nmap`
 - Timestamp-based log file creation
 - Execution duration tracking
 - Structured logging with levels (INFO, DEBUG, ERROR, WARN)
+- Automatic log archival (7+ days)
+- User ownership management
 
 #### `lib/packages.sh`
 - Generic `check_and_install_apt()` helper
 - Pre-configured package collections
+- Per-package APT logging
+- Failed package tracking and reporting
 - Silent installation with logged output
 
 #### `lib/docker.sh`
@@ -217,42 +249,35 @@ This installs: `ufw`, `iproute2`, `dnsutils`, `nmap`
 - Architecture detection (x86_64, aarch64, armv7)
 - Service configuration and verification
 - User group management
+- Comprehensive error handling
 
 ---
 
 ## Troubleshooting
 
-### "Script must be run as root"
+See [DEBUGGING.md](docs/DEBUGGING.md) for comprehensive troubleshooting guide.
+
+### Quick Fixes
+
+**Script must be run as root:**
 ```bash
-# Use sudo
 sudo ./devbox.sh install
 ```
 
-### "Library loading failure"
+**Library loading failure:**
 ```bash
-# Ensure lib/ directory exists and contains all files
-ls -la lib/
-
-# Make libraries executable
 chmod +x lib/*.sh
 ```
 
-### Docker group not taking effect
+**Docker group not taking effect:**
 ```bash
-# After installation, log out and back in
-# Or force group refresh
 newgrp docker
+# Or log out and back in
 ```
 
-### Docker Compose segfault
-DevBox v1.0 uses the modern Docker Compose plugin to avoid segmentation faults common with standalone binaries. If issues persist:
-
+**Logs are root-owned:**
 ```bash
-# Verify plugin installation
-docker compose version
-
-# Check logs for details
-tail -f logs/devbox_*.log
+sudo ./fix-logs-ownership.sh
 ```
 
 ---
@@ -273,6 +298,7 @@ tail -f logs/devbox_*.log
 - [ ] Plugin system for extensibility
 - [ ] Multi-language runtime support (Python, Node, Go, Rust)
 - [ ] Container orchestration templates
+- [ ] Package update checking
 
 ---
 
@@ -284,7 +310,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ```bash
 # Fork and clone the repository
-git clone https://github.com/yourusername/devbox.git
+git clone https://github.com/PavaraM/devbox.git
 cd devbox
 
 # Make your changes
@@ -304,12 +330,13 @@ tail -f logs/devbox_*.log
 - Quote all variables: `"$variable"`
 - Use `readonly` for constants
 - Return specific exit codes (see Exit Codes section)
+- Fix ownership of created files with `chown "$SUDO_USER:$SUDO_USER"`
 
 ---
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License.
 
 ```
 MIT License
@@ -347,10 +374,10 @@ SOFTWARE.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/devbox/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/devbox/discussions)
+- **Issues**: [GitHub Issues](https://github.com/PavaraM/devbox/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/PavaraM/devbox/discussions)
 - **Email**: pavaramirihagalla@icloud.com
 
 ---
 
-**Made with ❤️ by [Pavara Mirihagalla](https://github.com/yourusername)**
+**Made with ❤️ by [Pavara Mirihagalla](https://github.com/PavaraM)**
