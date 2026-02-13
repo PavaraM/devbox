@@ -61,7 +61,8 @@ pull_libraries() {  #function to load libraries and log the process
 }
 installscript() {
     pull_libraries      #loading libraries
-    apt_update          #updating the system
+#    apt_update          #updating the system
+# commenting out apt update for now, because its a waste run this everytime we test. will uncomment it when the script is ready for production.
     main_essentials     #installing essential packages
     docker_setup        #installing and setting up docker
 
