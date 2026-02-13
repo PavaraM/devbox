@@ -23,6 +23,28 @@ install_docker() {
     fi
 }
 
+docker_compose_setup() {
+    log DEBUG "Checking if Docker Compose is installed..."
+    if command -v docker-compose &> /dev/null; then
+        echo "Docker Compose is already installed."
+        log INFO "Docker Compose already installed on this system."
+        return 0
+    fi
+    echo "Docker Compose is not installed, installing now..."
+    log INFO "Docker Compose not installed"
+    log DEBUG "Running Docker Compose installation commands"
+    
+    # Install Docker Compose using the official convenience script
+    if curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose; then
+        chmod +x /usr/local/bin/docker-compose
+        echo "Docker Compose installed successfully."
+        log INFO "Docker Compose installation successful"
+    else
+        echo "Docker Compose installation failed"
+        log ERROR "Docker Compose installation failed"
+        return 9
+    fi
+}
 docker_setup() {
     log DEBUG "Setting up Docker environment..."
     install_docker
@@ -38,6 +60,14 @@ docker_setup() {
     
     # Enable Docker on boot
     sudo systemctl enable docker >> "$logfile" 2>&1
+    if [ $? -ne 0 ]; then
+            log ERROR "Failed to enable Docker service on boot"
+            return 7
+    else
+        log INFO "Docker service enabled on boot successfully"
+    fi
+
+    #docker_compose_setup
 
     # adding current user to docker group for non-root usage
     if ! groups $USER | grep -q "\bdocker\b"; then
@@ -52,15 +82,7 @@ docker_setup() {
         log INFO "user $USER added to docker group successfully"
     fi
 
-    #setting up docker-compose
-    log DEBUG "Setting up Docker Compose..."
-    if curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose; then
-        sudo chmod +x /usr/local/bin/docker-compose
-        log INFO "Docker Compose installation successful"
-    else
-        log ERROR "Docker Compose installation failed"
-        return 9
-    fi
+
 
     # Verify installation
     if docker --version &> /dev/null && docker-compose --version &> /dev/null; then

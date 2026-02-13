@@ -44,3 +44,10 @@ main_essentials() {
     check_and_install_apt ca-certificates ca-certificates
     check_and_install_apt build-essential build-essential
 }
+
+Networkingtools() {
+    check_and_install_apt ufw ufw
+    check_and_install_apt iproute2 iproute2
+    check_and_install_apt dnsutils dnsutils
+    check_and_install_apt nmap nmap
+}
