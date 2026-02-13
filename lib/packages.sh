@@ -3,7 +3,7 @@
 
 apt_update() {
     log INFO "Updating APT package lists..."
-    if apt update -y >> "$logfile" 2>&1; then
+    if apt update -y &> /dev/null; then
         log INFO "APT update successful"
     else
         log ERROR "APT update failed"
@@ -11,7 +11,7 @@ apt_update() {
     fi
     
     log INFO "Upgrading installed packages..."
-    if apt upgrade -y >> "$logfile" 2>&1; then
+    if apt upgrade -y &> /dev/null; then
         log INFO "APT upgrade successful"
     else
         log ERROR "APT upgrade failed"
