@@ -106,6 +106,11 @@ run_install() {
         log ERROR "Failed to install essential packages"
         exit 5
     fi
+
+    if ! networkingtools; then
+        log ERROR "Failed to install networking tools"
+        exit 5
+    fi
     
     log INFO "Installation completed successfully"
 }
