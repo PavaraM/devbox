@@ -1,6 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-trap log_footer EXIT
 
 # DevBox V1.0 - Development Environment Setup Script
 # Author: Pavara Mirihagalla | License: MIT | Date: 2026-02-13
@@ -8,6 +7,12 @@ trap log_footer EXIT
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly TIMESTAMP=$(date '+%Y-%m-%d')
 readonly START_TIME=$(date +%s%3N)
+# Load logging first (required for other operations)
+if ! source "$SCRIPT_DIR/lib/logging.sh"; then
+    echo "Error: Failed to load logging library" >&2
+    exit 4
+fi
+trap log_footer EXIT
 
 # ============================================================================
 # EARLY VALIDATION (fail fast)
@@ -16,6 +21,7 @@ readonly START_TIME=$(date +%s%3N)
 # Check for arguments first
 if [[ $# -eq 0 ]]; then
     echo "Error: No arguments provided. Use --help for usage information." >&2
+    log ERROR "No arguments provided"
     exit 2
 fi
 
@@ -59,6 +65,7 @@ fi
 # Check for root (after --help check)
 if [[ $EUID -ne 0 ]]; then
     echo "Error: This script must be run as root" >&2
+    log ERROR "Not running as root"
     exit 1
 fi
 
@@ -67,22 +74,17 @@ fi
 # ============================================================================
 
 # Ensure library scripts are executable
-for lib in logging.sh packages.sh docker.sh; do
+for lib in packages.sh docker.sh; do
     lib_path="$SCRIPT_DIR/lib/$lib"
+    log DEBUG "Checking library: $lib_path"
     if [[ ! -f "$lib_path" ]]; then
         echo "Error: Required library not found: $lib_path" >&2
+        log ERROR "Required library not found: $lib_path"
         exit 4
     fi
     [[ ! -x "$lib_path" ]] && chmod +x "$lib_path"
+    log INFO "Library \"$lib\" is present and executable"
 done
-
-# Load logging first (required for other operations)
-if ! source "$SCRIPT_DIR/lib/logging.sh"; then
-    echo "Error: Failed to load logging library" >&2
-    exit 4
-fi
-
-trap log_footer EXIT
 
 # Load remaining libraries
 for lib in packages.sh docker.sh; do
