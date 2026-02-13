@@ -925,8 +925,8 @@ tail -100 logs/devbox_$(date '+%Y-%m-%d').log
 
 ### Community Support
 
-- **GitHub Issues**: [Report bugs and feature requests](https://github.com/yourusername/devbox/issues)
-- **GitHub Discussions**: [Ask questions](https://github.com/yourusername/devbox/discussions)
+- **GitHub Issues**: [Report bugs and feature requests](https://github.com/PavaraM/devbox/issues)
+- **GitHub Discussions**: [Ask questions](https://github.com/PavaraM/devbox/discussions)
 - **Documentation**: [README.md](README.md)
 
 ---
