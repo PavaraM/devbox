@@ -16,10 +16,13 @@ sudo ./devbox.sh --install
 devbox/
 ├── devbox.sh          # Main setup script
 ├── lib/               # Function libraries
-│   ├── docker.sh
-│   ├── essentials.sh
-│   └── logging.sh
-└── logs/              # Script execution logs
+│   ├── docker.sh      # Docker installation and 
+│   ├── packages.sh    # Essential packages and tools 
+│   └── logging.sh     # Logging utilities and functions
+├── docs/              # Documentation
+│   ├── README.md      # Project documentation
+│   └── DEBUGING.md    # Debugging guide and exit codes
+└── logs/              # Script execution logs 
 ```
 
 ## Documentation
