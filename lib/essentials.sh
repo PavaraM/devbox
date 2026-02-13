@@ -1,4 +1,5 @@
 # lib/essentials.sh
+# This file contains functions to check and install essential packages for development.
 
 apt_update() {
     apt update -y
@@ -25,7 +26,7 @@ check_and_install_apt() {
     else
         echo "$name installation failed"
         log ERROR "$name installation failed"
-        return 1
+        return 5
     fi
 }
 

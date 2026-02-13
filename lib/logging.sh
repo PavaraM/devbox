@@ -1,4 +1,6 @@
 # lib/logging.sh
+# This file contains logging functions and setup for the devbox script.
+
 logfile="./logs/devbox_$timestamp.log"
 mkdir -p logs/
 
