@@ -35,8 +35,9 @@ log_footer() {
 log() {
     local level=$1
     shift
-    local line="$(date +%H:%M:%S) [$level] $*"
+    local line="$(date +%Y-%m-%d' '%H:%M:%S) [$level] $*"
     
-    #echo "$line"               # console
-    echo "$line" >> "$logfile"  # file
+    # Uncomment next line for console output
+    #echo "$line"
+    echo "$line" >> "$logfile"
 }
