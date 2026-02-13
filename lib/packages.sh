@@ -1,8 +1,6 @@
 # lib/essentials.sh
 # This file contains functions to check and install essential packages for development.
 
-aptlog="$SCRIPT_DIR/logs/apt/apt_$TIMESTAMP\_$name.log"
-
 apt_update() {
     apt update -y
     apt upgrade -y
@@ -13,6 +11,8 @@ apt_update() {
 check_and_install_apt() {
     local name=$1
     local pkg_name=$2
+    local aptlog="$SCRIPT_DIR/logs/apt/apt_$TIMESTAMP-$name.log"
+
     log DEBUG "Checking if $name is installed on this system..."
     if dpkg -s $name &> /dev/null; then
         echo "$name is already available."
@@ -22,12 +22,12 @@ check_and_install_apt() {
     echo "$name is not installed, installing now..."
     log INFO "$name not installed"
     log DEBUG "Running apt install $pkg_name"
-    if sudo apt install "$pkg_name" -y >> $aptlog 2>&1; then
+    if sudo apt install "$pkg_name" -y >> "$aptlog" 2>&1; then
         echo "$name installed successfully."
         log INFO "$name installation successful"
     else
-        echo "$name installation failed"
-        log ERROR "$name installation failed"
+        echo "$name installation failed (check $aptlog for details)"
+        log ERROR "$name installation failed (see apt log: apt_$TIMESTAMP-$name.log)"
         return 5
     fi
 }
