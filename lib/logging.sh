@@ -1,8 +1,17 @@
 # lib/logging.sh
 # This file contains logging functions and setup for the devbox script.
 
+mkdir -p "$SCRIPT_DIR/logs/"
+mkdir -p "$SCRIPT_DIR/logs/archive/"
+mkdir -p "$SCRIPT_DIR/logs/apt/"
+mkdir -p "$SCRIPT_DIR/logs/archive/apt/"
+
 logfile="$SCRIPT_DIR/logs/devbox_$TIMESTAMP.log"
-mkdir -p logs/
+aptlog="$SCRIPT_DIR/logs/apt/apt_$TIMESTAMP\_$name.log"
+
+#archive old logs (keep last 7 days)
+find "$SCRIPT_DIR/logs/" -type f -name "devbox_*.log" -mtime +7 -exec mv {} "$SCRIPT_DIR/logs/archive/" \;
+find "$SCRIPT_DIR/logs/apt/" -type f -name "apt_*.log" -mtime +7 -exec mv {} "$SCRIPT_DIR/logs/archive/apt/" \;
 
 #logfile header
 echo "script started at $(date)" >> "$logfile"
