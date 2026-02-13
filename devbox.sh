@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+trap log_footer EXIT
 
 # DevBox V1.0 - Development Environment Setup Script
 # Author: Pavara Mirihagalla | License: MIT | Date: 2026-02-13
