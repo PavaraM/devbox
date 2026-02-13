@@ -67,29 +67,32 @@ docker_setup() {
         log INFO "Docker service enabled on boot successfully"
     fi
 
-    #docker_compose_setup
+    docker_compose_setup
 
     # adding current user to docker group for non-root usage
     if ! groups $USER | grep -q "\bdocker\b"; then
         log DEBUG "Adding user $USER to docker group..."
+        echo "Adding user $USER to docker group for non-root usage..."
         sudo usermod -aG docker $USER >> "$logfile" 2>&1
     fi
 
     if [ $? -ne 0 ]; then
             log ERROR "Failed to add user $USER to docker group"
+            echo "Failed to add user $USER to docker group"
             return 8
     else
         log INFO "user $USER added to docker group successfully"
+        echo "User $USER added to docker group successfully."
     fi
 
-
-
     # Verify installation
-    if docker --version &> /dev/null && docker-compose --version &> /dev/null; then
+    if docker --version >> "$logfile" 2>&1 || docker-compose --version >> "$logfile" 2>&1; then
         log INFO "Docker and Docker Compose are installed and working correctly."
+        echo "Docker and Docker Compose installation verification successful."
         return 0
     else
         log ERROR "Docker or Docker Compose installation verification failed"
+        echo "Docker or Docker Compose installation verification failed"
         return 10
     fi
-    }
+}
