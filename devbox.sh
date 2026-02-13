@@ -6,39 +6,13 @@ start_time=$(date +%s%3N)
 
 #Initial Variables
 timestamp=$(date '+%Y-%m-%d')
-logfile="./logs/devbox_$timestamp.log"
-mkdir -p logs/
 
 #Header
 echo "DevBox v1.0"
 echo "---------------------------"
 
-#logfile header
-echo "script started at $(date)" >> "$logfile"
-echo "command: devbox $@" >> "$logfile"
-echo "------------------------------" >> "$logfile"
-
-log_footer() {
-    local exit_code=$?
-    end_time=$(date +%s%3N)
-    
-    duration_ms=$((end_time - start_time))
-    duration_s=$(awk "BEGIN {printf \"%.3f\", $duration_ms/1000}")
-    echo "------------------------------" >> "$logfile"
-    echo "Script ended at $(date) exit_code=$exit_code duration=${duration_s}s" >> "$logfile"
-    echo "==============================" >> "$logfile"
-}
-
-
+source ./lib/logging.sh
 trap log_footer EXIT
-log() {
-    local level=$1
-    shift
-    local line="$(date +%H:%M:%S) [$level] $*"
-    
-    #echo "$line"               # console
-    echo "$line" >> "$logfile"  # file
-}
 
 if [[ $EUID -ne 0 ]]; then #checks for root permision
     echo "This script must be run as root"
@@ -58,12 +32,12 @@ no_arg() {
     exit 2
 }
 pull_libraries() {
-    log DEBUG "Loading libraries"
+    log DEBUG "Loading libraries..."
 
-    if source lib/essencials.sh &>> $logfile; then
-        log INFO "\"lib/essencials.sh\" loaded successfully."
+    if source lib/essentials.sh &>> $logfile; then
+        log INFO "\"lib/essentials.sh\" loaded successfully."
     else
-        log ERROR "Failed to load \"lib/essencials.sh\""
+        log ERROR "Failed to load \"lib/essentials.sh\""
         echo "Failed Loading libraries."
         exit 4
     fi
@@ -82,12 +56,10 @@ pull_libraries() {
 #        exit 4
 #    fi
 }
-
 installscript() {
     pull_libraries
 #    apt_update
-    install_git
-    install_curl
+    main_essentials
 }
 
 if [ $# -eq 0 ]; then
