@@ -349,7 +349,7 @@ SOFTWARE.
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/devbox/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/devbox/discussions)
-- **Email**: pavara@example.com
+- **Email**: pavaramirihagalla@icloud.com
 
 ---
 
