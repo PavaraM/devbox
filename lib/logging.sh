@@ -12,10 +12,13 @@ logfile="$SCRIPT_DIR/logs/devbox_$TIMESTAMP.log"
 find "$SCRIPT_DIR/logs/" -type f -name "devbox_*.log" -mtime +7 -exec mv {} "$SCRIPT_DIR/logs/archive/" \;
 find "$SCRIPT_DIR/logs/apt/" -type f -name "apt_*.log" -mtime +7 -exec mv {} "$SCRIPT_DIR/logs/archive/apt/" \;
 
-#logfile header
+# Initialize log file
 echo "script started at $(date)" >> "$logfile"
 echo "command: devbox $@" >> "$logfile"
+echo "system: $(uname -a)" >> "$logfile"
+echo "user: $USER (SUDO_USER: ${SUDO_USER:-none})" >> "$logfile"
 echo "------------------------------" >> "$logfile"
+echo " " >> "$logfile" 
 
 log_footer() {
     local exit_code=$?
