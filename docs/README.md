@@ -21,7 +21,7 @@ devbox/
 │   └── logging.sh     # Logging utilities and functions
 ├── docs/              # Documentation
 │   ├── README.md      # Project documentation
-│   └── DEBUGING.md    # Debugging guide and exit codes
+│   └── DEBUGGING.md    # Debugging guide and exit codes
 └── logs/              # Script execution logs 
 ```
 
