@@ -37,10 +37,10 @@ no_arg() {
 pull_libraries() {  #function to load libraries and log the process
     log DEBUG "Loading libraries..."
     # The following libraries are essential for the script's functionality. Each library is sourced and checked for successful loading. If any library fails to load, an error is logged and the script exits with a specific code.
-    if source lib/essentials.sh &>> $logfile; then
-        log INFO "\"lib/essentials.sh\" loaded successfully."
+    if source lib/packages.sh &>> $logfile; then
+        log INFO "\"lib/packages.sh\" loaded successfully."
     else
-        log ERROR "Failed to load \"lib/essentials.sh\""
+        log ERROR "Failed to load \"lib/packages.sh\""
         echo "Failed Loading libraries."
         exit 4
     fi
