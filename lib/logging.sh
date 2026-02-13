@@ -16,6 +16,7 @@ log_footer() {
     echo "------------------------------" >> "$logfile"
     echo "Script ended at $(date) exit_code=$exit_code duration=${duration_s}s" >> "$logfile"
     echo "==============================" >> "$logfile"
+    echo " " >> $logfile
 }
 
 log() {
