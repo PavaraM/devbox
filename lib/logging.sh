@@ -7,7 +7,6 @@ mkdir -p "$SCRIPT_DIR/logs/apt/"
 mkdir -p "$SCRIPT_DIR/logs/archive/apt/"
 
 logfile="$SCRIPT_DIR/logs/devbox_$TIMESTAMP.log"
-aptlog="$SCRIPT_DIR/logs/apt/apt_$TIMESTAMP\_$name.log"
 
 #archive old logs (keep last 7 days)
 find "$SCRIPT_DIR/logs/" -type f -name "devbox_*.log" -mtime +7 -exec mv {} "$SCRIPT_DIR/logs/archive/" \;

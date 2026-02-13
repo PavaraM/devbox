@@ -1,6 +1,8 @@
 # lib/essentials.sh
 # This file contains functions to check and install essential packages for development.
 
+aptlog="$SCRIPT_DIR/logs/apt/apt_$TIMESTAMP\_$name.log"
+
 apt_update() {
     apt update -y
     apt upgrade -y
