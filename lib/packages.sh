@@ -2,8 +2,21 @@
 # This file contains functions to check and install essential packages for development.
 
 apt_update() {
-    apt update -y
-    apt upgrade -y
+    log INFO "Updating APT package lists..."
+    if apt update -y >> "$logfile" 2>&1; then
+        log INFO "APT update successful"
+    else
+        log ERROR "APT update failed"
+        return 5
+    fi
+    
+    log INFO "Upgrading installed packages..."
+    if apt upgrade -y >> "$logfile" 2>&1; then
+        log INFO "APT upgrade successful"
+    else
+        log ERROR "APT upgrade failed"
+        return 5
+    fi
 }
 
 
