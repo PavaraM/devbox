@@ -2,7 +2,16 @@
 # Reporting library for devbox diagnostics
 
 mkdir -p "$SCRIPT_DIR/diagnostic_reports"
-reportfile="$SCRIPT_DIR/diagnostic_reports/report-$TIMESTAMP.log"
+reportfile="$SCRIPT_DIR/diagnostic_reports/report-$(date +%Y-%m-%d-%H-%M-%S).log"
+
+archive_old_reports() {
+    log DEBUG "Archiving old diagnostic reports"
+    local archive_dir="$SCRIPT_DIR/diagnostic_reports/archive"
+    mkdir -p "$archive_dir"
+    find "$SCRIPT_DIR/diagnostic_reports" -maxdepth 1 -type f -name "report-*.log" -exec mv {} "$archive_dir/" \;
+    log INFO "Old diagnostic reports archived to $archive_dir"
+}
+archive_old_reports
 
 report_header() {
     echo "Diagnostic Report - $TIMESTAMP" > "$reportfile"
@@ -17,9 +26,11 @@ report() {
     report_level=$1
     shift
     local message=$@
-    echo "$message"
+    #echo "$message"
     
-    log LOG "Report entry at level $report_level: $message"
+    log "$report_level" "$message"
     echo "[$report_level] $message" >> "$reportfile"
+    echo "$message"
 
 }
+

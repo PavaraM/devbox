@@ -16,6 +16,10 @@ set -euo pipefail
 # 8  - Docker group setup failure
 # 9  - Docker Compose installation failure
 # 10 - Docker verification failure
+# 11 - Diagnostic check failure
+# 12 - No internet connection for diagnostics
+# 13 - Essential tool missing in diagnostics
+# 14 - apt package manager is not healthy
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly TIMESTAMP=$(date '+%Y-%m-%d')
@@ -71,6 +75,7 @@ Exit Codes:
   8  - Docker group setup failure
   9  - Docker Compose installation failure
   10 - Docker verification failure
+  11 - Diagnostic check failure
 
 EOF
     exit 0
@@ -88,7 +93,7 @@ fi
 # ============================================================================
 
 # Ensure library scripts are executable
-for lib in packages.sh docker.sh; do
+for lib in packages.sh docker.sh diagnostics.sh reporting.sh; do
     lib_path="$SCRIPT_DIR/lib/$lib"
     log DEBUG "Checking library: $lib_path"
     if [[ ! -f "$lib_path" ]]; then
@@ -101,7 +106,7 @@ for lib in packages.sh docker.sh; do
 done
 
 # Load remaining libraries
-for lib in packages.sh docker.sh; do
+for lib in packages.sh docker.sh reporting.sh diagnostics.sh; do
     if source "$SCRIPT_DIR/lib/$lib" &>> "${logfile:-/dev/null}"; then
         log INFO "\"lib/$lib\" loaded successfully"
     else
@@ -109,6 +114,7 @@ for lib in packages.sh docker.sh; do
         exit 4
     fi
 done
+#archive_old_reports
 
 # ============================================================================
 # FUNCTIONS
@@ -132,34 +138,23 @@ run_install() {
 }
 
 run_doctor() {
-    log DEBUG "Loading reportig library for diagnostics..."
-    if source "$SCRIPT_DIR/lib/reporting.sh" &>> "${logfile:-/dev/null}"; then
-        log INFO "Reporting library loaded successfully for diagnostics"
-    else
-        log ERROR "Failed to load reporting library for diagnostics"
-        exit 4
-    fi
-    log DEBUG "Loading diagnostics library for diagnostics..."
-    if source "$SCRIPT_DIR/lib/diagnostics.sh" &>> "${logfile:-/dev/null}"; then
-        log INFO "Diagnostics library loaded successfully"
-    else
-        log ERROR "Failed to load diagnostics library"
-        exit 4
-    fi
-
+    #archive_old_reports
     GENERAL_HEALTH_CHECKS=(
         osinfo
         pkg_mgr_health
         toolchain_verification
     )
+    echo "Running diagnostics..."
     log DEBUG "Running diagnostic checks..."
     for check in "${GENERAL_HEALTH_CHECKS[@]}"; do
         if ! $check; then
             log ERROR "Diagnostic check \"$check\" failed"
-            exit 1
+            exit 11
         fi
     done
+    report INFO "Diagnostics completed successfully"
     log INFO "All diagnostic checks passed successfully"
+    log INFO "Diagnostic report saved to $reportfile"
 }
 
 setup_docker() {
@@ -230,7 +225,9 @@ case "$COMMAND" in
         fi
         ;;
     doctor)
-        run_doctor
+        run_doctor 
+        report_summary >> "$reportfile"
+        report_summary >> "$logfile"
         ;;
 esac
 

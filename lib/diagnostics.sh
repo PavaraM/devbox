@@ -2,57 +2,89 @@
 # Diagnostics library for devbox
 
 # Placeholder for future diagnostic functions
+passed=0
 
 osinfo() {
-    log INFO "Collecting OS information"
-    echo "Collecting OS information..."
+    report DEBUG "Collecting OS information..."
     distro=$(lsb_release -d 2>/dev/null | cut -f2- || echo "Unknown")
     kernel=$(uname -r)
     architecture=$(uname -m)
     userpermissions=$(id -u)
-    internet=$(ping -c 1 google.com &>/dev/null && echo "Online" || echo "Offline")
+    internet=$(ping -c 1 google.com &>/dev/null && echo "online" || echo "offline")
     
-    echo "Distro: $distro"
-    echo "Kernel: $kernel"
-    echo "Architecture: $architecture"
-    echo "User Permissions: $userpermissions"
-    echo "Internet Connectivity: $internet"
-    log INFO "Distro: $distro"
-    log INFO "Kernel: $kernel"
-    log INFO "Architecture: $architecture"
-    log INFO "User Permissions: $userpermissions"
-    log INFO "Internet Connectivity: $internet"
+    report INFO "Distro: $distro"
+    report INFO "Kernel: $kernel"
+    report INFO "Architecture: $architecture"
+    report INFO "User Permissions: $userpermissions"
+    report INFO "Internet Connectivity: $internet"
 
+    if [ ! "$internet" = "online" ]; then
+        report WARN "Internet is offline"
+    fi
+
+    passed=$((passed + 1))
     return 0
 }
 
 pkg_mgr_health() {
-    report INFO "Checking package manager health..."
-    if command -v apt &>/dev/null; then
-        if ! apt update -qq; then
-            report ERROR "APT package manager is not healthy"
-            return 1
-        fi
-        report INFO "APT package manager is healthy"
-    else
-        report ERROR "No supported package manager found"
+    report DEBUG "Checking package manager health..."
+
+    if ! command -v apt &> /dev/null; then
+        report ERROR "APT not found"
         return 1
     fi
+
+    # Check dpkg lock
+    if lsof /var/lib/dpkg/lock &>/dev/null; then
+        report ERROR "dpkg is locked"
+        return 11
+    fi
+
+    # Check broken packages
+    if dpkg --audit | grep . &>/dev/null; then
+        report ERROR "Broken packages detected"
+        return 15
+    fi
+
+    report INFO "APT package manager is healthy"
+    passed=$((passed + 1))
     return 0
 }
 
+
 toolchain_verification() {
-    report INFO "Verifying essential development tools..."
+    report DEBUG "Verifying essential development tools..."
     local tools=(git curl wget htop tmux vim unzip tree net-tools ca-certificates build-essential ufw iproute2 dnsutils nmap)
     local all_ok=true
     for tool in "${tools[@]}"; do
-        if ! command -v "$tool" &>/dev/null; then
+        if ! dpkg -s "$tool" &>/dev/null; then
             report ERROR "Required tool \"$tool\" is missing"
             all_ok=false
         else
-            version=$("$tool" --version 2>&1 | head -n1)
-            report INFO "Tool \"$tool\" is present: $version"
+            report INFO "Tool \"$tool\" is present."
         fi
     done
-    $all_ok && return 0 || return 1
+    if [ "$all_ok" = true ]; then
+        report INFO "All essential development tools are present"
+        passed=$((passed + 1))
+        return 0
+    else
+        report ERROR "One or more essential development tools are missing"
+        return 13
+    fi
+}
+
+report_summary() {
+    if [ $passed -eq 3 ]; then
+        status="PASSED"
+    else
+        status="FAILED"
+    fi
+
+    echo "======================="
+    echo "Diagnostic Summary"
+    echo "status: $status"
+    echo "checks_passed: $passed/3"
+    echo "report generated at: $reportfile"
+    echo "======================="
 }
