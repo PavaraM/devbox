@@ -16,9 +16,10 @@ DevBox automates the tedious setup of development environments by installing ess
 🔧 **Essential Dev Tools** - Git, curl, wget, htop, tmux, neovim, and more  
 🐳 **Docker Integration** - Optional Docker and Docker Compose installation  
 📊 **Comprehensive Logging** - Detailed logs with timestamps and duration tracking  
+🩺 **System Diagnostics** - Built-in health checks and environment verification  
 🛡️ **Robust Error Handling** - Granular exit codes for easy debugging  
 ⚡ **Idempotent Operations** - Safe to run multiple times  
-📁 **User-Accessible Logs** - Logs owned by your user, not root  
+📝 **User-Accessible Logs** - Logs owned by your user, not root  
 
 ---
 
@@ -37,6 +38,9 @@ sudo ./devbox.sh install
 
 # Install with Docker support
 sudo ./devbox.sh install --plus-docker
+
+# Run diagnostics
+sudo ./devbox.sh doctor
 ```
 
 ---
@@ -49,25 +53,32 @@ sudo ./devbox.sh install --plus-docker
 - Root/sudo access
 - Internet connection
 
-### Structure
+### Project Structure
 
 ```
 devbox/
-├── devbox.sh           # Main script
-├── lib/                # Library modules
-│   ├── docker.sh       # Docker installation & setup
-│   ├── logging.sh      # Logging utilities
-│   └── packages.sh     # Package management
-├── logs/               # Execution logs (auto-created)
-│   ├── devbox_*.log    # Main script logs
-│   ├── apt/            # Per-package installation logs
+├── devbox.sh              # Main script
+├── lib/                   # Library modules
+│   ├── diagnostics.sh     # System diagnostics & health checks
+│   ├── docker.sh          # Docker installation & setup
+│   ├── logging.sh         # Logging utilities
+│   ├── packages.sh        # Package management
+│   └── reporting.sh       # Diagnostic report generation
+├── logs/                  # Execution logs (auto-created)
+│   ├── devbox_*.log       # Main script logs
+│   ├── apt/               # Per-package installation logs
 │   │   └── apt_*.log   
-│   └── archive/        # Archived logs (7+ days old)
+│   └── archive/           # Archived logs (7+ days old)
 │       ├── devbox_*.log
 │       └── apt/
-└── docs/
-    ├── README.md       # This file
-    └── DEBUGGING.md    # Debugging guide
+├── diagnostic_reports/    # System diagnostic reports
+│   ├── report-*.log       # Timestamped diagnostic reports
+│   └── archive/           # Archived reports
+├── docs/
+│   ├── README.md          # This file
+│   └── DEBUGGING.md       # Debugging guide
+├── LICENSE                # MIT License
+└── VERSION                # Version information
 ```
 
 ---
@@ -84,10 +95,16 @@ sudo ./devbox.sh install
 ```
 
 **Installs:**
-- **Version Control**: git
-- **Network Tools**: curl, wget, net-tools, ca-certificates, ufw, iproute2, dnsutils, nmap
+
+**Core Development Tools:**
+- **Version Control**: git-all
+- **Network Tools**: curl, wget, net-tools, ca-certificates
 - **System Utilities**: htop, tmux, tree, unzip
 - **Development**: neovim, build-essential
+
+**Networking Tools:**
+- **Firewall**: ufw (Uncomplicated Firewall)
+- **Network Utilities**: iproute2, dnsutils, nmap
 
 #### `install --plus-docker`
 Install everything plus Docker and Docker Compose.
@@ -97,18 +114,59 @@ sudo ./devbox.sh install --plus-docker
 ```
 
 **Additionally configures:**
-- Docker Engine (latest stable)
+- Docker Engine (latest stable via official script)
 - Docker Compose plugin (v2.24.5)
-- Docker service auto-start
+- Docker service auto-start on boot
 - User permissions for non-root Docker access
+- Architecture detection (x86_64, aarch64, armv7)
 
 > **Note:** You'll need to log out and back in for Docker group permissions to take effect.
 
 #### `doctor`
-Run diagnostic checks on your environment *(coming soon)*.
+Run comprehensive diagnostic checks on your environment.
 
 ```bash
 sudo ./devbox.sh doctor
+```
+
+**Diagnostic Checks:**
+1. **OS Information**
+   - Distribution and version
+   - Kernel version
+   - System architecture
+   - User permissions
+   - Internet connectivity
+
+2. **Package Manager Health**
+   - APT availability
+   - dpkg lock status
+   - Broken package detection
+
+3. **Toolchain Verification**
+   - Checks for all essential development tools
+   - Validates networking utilities
+   - Reports missing packages
+
+**Output:**
+- Generates timestamped diagnostic report in `diagnostic_reports/`
+- Displays summary with pass/fail status
+- Logs detailed results for troubleshooting
+
+Example output:
+```
+Running diagnostics...
+[INFO] Distro: Ubuntu 24.04 LTS
+[INFO] Kernel: 6.17.0-14-generic
+[INFO] Architecture: x86_64
+[INFO] Internet Connectivity: online
+[INFO] APT package manager is healthy
+[INFO] All essential development tools are present
+=======================
+Diagnostic Summary
+status: PASSED
+checks_passed: 3/3
+report generated at: diagnostic_reports/report-2026-02-14-01-45-38.log
+=======================
 ```
 
 #### `--help`
@@ -137,33 +195,59 @@ DevBox uses granular exit codes for precise error identification:
 | `8` | Docker group setup failure |
 | `9` | Docker Compose installation failure |
 | `10` | Docker verification failure |
+| `11` | Diagnostic check failure |
+| `12` | No internet connection for diagnostics |
+| `13` | Essential tool missing in diagnostics |
+| `14` | APT package manager is not healthy |
 
 ---
 
-## Logging
+## Logging System
 
-Every execution creates a timestamped log file in the `logs/` directory:
+Every execution creates detailed, timestamped log files:
 
+### Log Types
+
+**Main Execution Logs:**
 ```
 logs/devbox_2026-02-14.log
-logs/apt/apt_2026-02-14-git.log
-logs/apt/apt_2026-02-14-curl.log
 ```
 
-**Features:**
-- 📝 **Main log** - Overall script execution
-- 📦 **Per-package APT logs** - Individual installation details
-- 🗄️ **Auto-archival** - Logs older than 7 days moved to `archive/`
-- 👤 **User ownership** - All logs owned by your user, not root
+**Per-Package APT Logs:**
+```
+logs/apt/apt_2026-02-14-git.log
+logs/apt/apt_2026-02-14-curl.log
+logs/apt/apt_2026-02-14-docker.log
+```
 
-**Log Format:**
+**Diagnostic Reports:**
+```
+diagnostic_reports/report-2026-02-14-01-45-38.log
+```
+
+### Log Features
+
+📝 **Main log** - Overall script execution with all operations  
+📦 **Per-package APT logs** - Individual installation details and errors  
+🩺 **Diagnostic reports** - System health check results  
+🗄️ **Auto-archival** - Logs older than 7 days moved to `archive/`  
+👤 **User ownership** - All logs owned by your user, not root  
+⏱️ **Duration tracking** - Precise execution time in milliseconds  
+
+### Log Format
+
 ```
 script started at Sat Feb 14 01:45:38 +0530 2026
 command: devbox install --plus-docker
-system: Linux OBSIDIAN 6.17.0-14-generic ...
+system: Linux OBSIDIAN 6.17.0-14-generic x86_64
 user: root (SUDO_USER: pavara)
 ------------------------------
+ 
 2026-02-14 01:45:38 [INFO] Script started with command: install
+2026-02-14 01:45:38 [DEBUG] Checking library: /path/to/lib/packages.sh
+2026-02-14 01:45:38 [INFO] Library "packages.sh" is present and executable
+2026-02-14 01:45:38 [INFO] "lib/packages.sh" loaded successfully
+2026-02-14 01:45:38 [INFO] Starting installation process
 2026-02-14 01:45:38 [DEBUG] Checking if git is installed...
 2026-02-14 01:45:39 [INFO] git installation successful
 ...
@@ -171,6 +255,13 @@ user: root (SUDO_USER: pavara)
 Script ended at Sat Feb 14 01:45:40 +0530 2026 exit_code=0 duration=2.192s
 ==============================
 ```
+
+### Log Levels
+
+- **INFO** - Successful operations and milestones
+- **DEBUG** - Detailed operation information
+- **ERROR** - Failed operations with context
+- **WARN** - Non-critical issues (e.g., offline status)
 
 ---
 
@@ -182,11 +273,26 @@ Edit `lib/packages.sh` to add your own packages:
 
 ```bash
 main_essentials() {
-    check_and_install_apt git git-all
-    check_and_install_apt curl curl
-    # Add your packages here
-    check_and_install_apt python3 python3-pip
-    check_and_install_apt nodejs npm
+    log INFO "Installing essential development packages..."
+    local failed_packages=()
+    
+    # Existing packages
+    check_and_install_apt git git-all || failed_packages+=("git")
+    check_and_install_apt curl curl || failed_packages+=("curl")
+    
+    # Add your custom packages here
+    check_and_install_apt python3 python3-pip || failed_packages+=("python3")
+    check_and_install_apt nodejs npm || failed_packages+=("nodejs")
+    check_and_install_apt golang golang-go || failed_packages+=("golang")
+    
+    # Report results
+    if [ ${#failed_packages[@]} -eq 0 ]; then
+        log INFO "All essential packages installed successfully"
+        return 0
+    else
+        log ERROR "Failed to install ${#failed_packages[@]} package(s): ${failed_packages[*]}"
+        return 5
+    fi
 }
 ```
 
@@ -197,22 +303,55 @@ The `networkingtools()` function is enabled by default. To disable it, modify `d
 ```bash
 run_install() {
     log INFO "Starting installation process"
-    main_essentials
-    # networkingtools  # Comment this line to skip
+    
+    if ! main_essentials; then
+        log ERROR "Failed to install essential packages"
+        exit 5
+    fi
+
+    # Comment out to skip networking tools
+    # if ! networkingtools; then
+    #     log ERROR "Failed to install networking tools"
+    #     exit 5
+    # fi
+    
     log INFO "Installation completed successfully"
 }
 ```
 
-### Fix Log Ownership
+### Adding Custom Diagnostic Checks
 
-If logs were created as root, use the included utility:
+Extend `lib/diagnostics.sh` with your own checks:
 
 ```bash
-# Check ownership
-./fix-logs-ownership.sh
+check_nodejs_version() {
+    report DEBUG "Checking Node.js installation..."
+    
+    if ! command -v node &> /dev/null; then
+        report ERROR "Node.js is not installed"
+        return 1
+    fi
+    
+    local node_version=$(node --version)
+    report INFO "Node.js version: $node_version"
+    
+    passed=$((passed + 1))
+    return 0
+}
+```
 
-# Fix it
-sudo ./fix-logs-ownership.sh
+Then add it to the checks array in `devbox.sh`:
+
+```bash
+run_doctor() {
+    GENERAL_HEALTH_CHECKS=(
+        osinfo
+        pkg_mgr_health
+        toolchain_verification
+        check_nodejs_version  # Your custom check
+    )
+    # ... rest of function
+}
 ```
 
 ---
@@ -231,74 +370,283 @@ sudo ./fix-logs-ownership.sh
 ### Library Overview
 
 #### `lib/logging.sh`
+**Purpose:** Centralized logging infrastructure
+
+**Features:**
 - Timestamp-based log file creation
-- Execution duration tracking
+- Execution duration tracking with millisecond precision
 - Structured logging with levels (INFO, DEBUG, ERROR, WARN)
 - Automatic log archival (7+ days)
-- User ownership management
+- User ownership management (fixes root-owned logs)
+- Automatic directory creation for logs and archives
+
+**Key Functions:**
+- `log()` - Main logging function
+- `log_footer()` - Exit handler for duration and cleanup
 
 #### `lib/packages.sh`
+**Purpose:** Package installation and management
+
+**Features:**
 - Generic `check_and_install_apt()` helper
 - Pre-configured package collections
 - Per-package APT logging
 - Failed package tracking and reporting
 - Silent installation with logged output
+- Idempotent checks (skips already installed)
+
+**Key Functions:**
+- `check_and_install_apt(name, pkg_name)` - Install single package
+- `main_essentials()` - Core development packages
+- `networkingtools()` - Network utilities
+- `apt_update()` - Update and upgrade system (optional)
 
 #### `lib/docker.sh`
-- Modern Docker Compose plugin installation
+**Purpose:** Docker and Docker Compose installation
+
+**Features:**
+- Uses official Docker convenience script
+- Modern Docker Compose plugin installation (not standalone)
 - Architecture detection (x86_64, aarch64, armv7)
 - Service configuration and verification
-- User group management
+- User group management for non-root access
 - Comprehensive error handling
+- Both plugin and standalone Compose detection
+
+**Key Functions:**
+- `install_docker()` - Docker engine installation
+- `docker_compose_setup()` - Docker Compose plugin
+- `docker_setup()` - Complete Docker environment setup
+
+#### `lib/diagnostics.sh`
+**Purpose:** System health checks and verification
+
+**Features:**
+- OS and kernel information collection
+- Package manager health validation
+- Internet connectivity testing
+- Tool availability verification
+- Pass/fail counting for summary
+
+**Key Functions:**
+- `osinfo()` - System information collection
+- `pkg_mgr_health()` - APT and dpkg status checks
+- `toolchain_verification()` - Essential tool validation
+- `report_summary()` - Generates pass/fail summary
+
+#### `lib/reporting.sh`
+**Purpose:** Diagnostic report generation
+
+**Features:**
+- Timestamped report files
+- Automatic report archival
+- Dual logging (report file + main log)
+- Console output for user feedback
+
+**Key Functions:**
+- `report()` - Write to report and log
+- `report_header()` - Initialize report file
+- `archive_old_reports()` - Move old reports to archive
 
 ---
 
 ## Troubleshooting
 
-See [DEBUGGING.md](docs/DEBUGGING.md) for comprehensive troubleshooting guide.
+### Common Issues
 
-### Quick Fixes
-
-**Script must be run as root:**
+#### Script must be run as root
 ```bash
+Error: This script must be run as root
+
+Solution:
 sudo ./devbox.sh install
 ```
 
-**Library loading failure:**
+#### Library loading failure
 ```bash
+Error: Required library not found: /path/to/lib/packages.sh
+
+Solution:
 chmod +x lib/*.sh
+# Or re-clone the repository
 ```
 
-**Docker group not taking effect:**
+#### Docker group not taking effect
 ```bash
+# After installation, Docker commands still require sudo
+
+Solution:
 newgrp docker
-# Or log out and back in
+# Or log out and back in completely
 ```
 
-**Logs are root-owned:**
+#### Logs are root-owned
 ```bash
-sudo ./fix-logs-ownership.sh
+# Can't read log files without sudo
+
+Solution:
+# DevBox automatically fixes this, but if needed:
+sudo chown -R $USER:$USER logs/
 ```
+
+#### Package installation fails
+```bash
+Check the specific package log:
+cat logs/apt/apt_2026-02-14-packagename.log
+
+Common causes:
+- Internet connectivity issues
+- Repository configuration problems
+- Disk space constraints
+```
+
+#### dpkg lock error
+```bash
+[ERROR] dpkg is locked
+
+Solution:
+# Wait for other package operations to complete, or:
+sudo rm /var/lib/dpkg/lock-frontend
+sudo rm /var/lib/dpkg/lock
+sudo dpkg --configure -a
+```
+
+### Debug Mode
+
+Enable console logging by editing `lib/logging.sh`:
+
+```bash
+log() {
+    local level=$1
+    shift
+    local line="$(date +%Y-%m-%d' '%H:%M:%S) [$level] $*"
+    
+    # Uncomment for console output:
+    echo "$line"
+    
+    echo "$line" >> "$logfile"
+}
+```
+
+### Viewing Logs
+
+```bash
+# Latest main log
+tail -f logs/devbox_$(date +%Y-%m-%d).log
+
+# Specific package installation
+cat logs/apt/apt_*-git.log
+
+# Latest diagnostic report
+cat diagnostic_reports/report-*.log | tail -1
+
+# All errors from today
+grep ERROR logs/devbox_$(date +%Y-%m-%d).log
+```
+
+---
+
+## Examples
+
+### Fresh Ubuntu Server Setup
+
+```bash
+# Initial system setup
+sudo apt update && sudo apt upgrade -y
+
+# Install DevBox
+git clone https://github.com/PavaraM/devbox.git
+cd devbox
+chmod +x devbox.sh
+
+# Full installation with Docker
+sudo ./devbox.sh install --plus-docker
+
+# Verify installation
+sudo ./devbox.sh doctor
+
+# Start using Docker (after re-login)
+docker run hello-world
+```
+
+### Continuous Integration Server
+
+```bash
+# Install only essential tools (no Docker)
+sudo ./devbox.sh install
+
+# Verify environment
+sudo ./devbox.sh doctor
+
+# Check report
+cat diagnostic_reports/report-*.log
+```
+
+### Development Workstation
+
+```bash
+# Full setup with Docker
+sudo ./devbox.sh install --plus-docker
+
+# Add custom tools to lib/packages.sh
+# Then re-run
+sudo ./devbox.sh install
+
+# Periodic health checks
+sudo ./devbox.sh doctor
+```
+
+---
+
+## Best Practices
+
+### Installation
+- Always run `doctor` after `install` to verify setup
+- Review logs if any package fails to install
+- Run `install` again if network issues interrupted first attempt
+
+### Logging
+- Check the main log for overview: `logs/devbox_$(date +%Y-%m-%d).log`
+- Check package-specific logs for detailed errors: `logs/apt/`
+- Archive old logs manually if disk space is limited
+
+### Docker
+- After Docker installation, log out and back in for group changes
+- Test with `docker run hello-world` before production use
+- Use `docker compose` (not `docker-compose`) for modern plugin
+
+### Diagnostics
+- Run `doctor` periodically to catch configuration drift
+- Save diagnostic reports for troubleshooting history
+- Use diagnostic reports when seeking support
 
 ---
 
 ## Roadmap
 
-### v1.1 (Planned)
-- [ ] Implement `doctor` command with health checks
+### v1.1 (In Development)
+- [x] Implement `doctor` command with health checks
+- [x] Diagnostic report generation
+- [x] Package manager health validation
 - [ ] Add `--dry-run` flag for safe testing
 - [ ] Support for additional Linux distributions
 - [ ] Configuration file support
-- [ ] Rollback functionality
 - [ ] Color-coded console output
 - [ ] `--quiet` and `--verbose` modes
+
+### v1.2 (Planned)
+- [ ] Rollback functionality
+- [ ] Update checking for installed packages
+- [ ] Custom package profiles
+- [ ] Remote configuration management
+- [ ] Email notifications for long operations
 
 ### v2.0 (Future)
 - [ ] Web dashboard for remote management
 - [ ] Plugin system for extensibility
 - [ ] Multi-language runtime support (Python, Node, Go, Rust)
 - [ ] Container orchestration templates
-- [ ] Package update checking
+- [ ] Infrastructure as Code integration
 
 ---
 
@@ -310,27 +658,88 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ```bash
 # Fork and clone the repository
-git clone https://github.com/PavaraM/devbox.git
+git clone https://github.com/YOUR_USERNAME/devbox.git
 cd devbox
+
+# Create a feature branch
+git checkout -b feature/your-feature-name
 
 # Make your changes
 vim lib/packages.sh
 
 # Test your changes
 sudo ./devbox.sh install
+sudo ./devbox.sh doctor
 
 # Check logs for issues
 tail -f logs/devbox_*.log
+
+# Commit and push
+git add .
+git commit -m "Add: your feature description"
+git push origin feature/your-feature-name
 ```
 
 ### Coding Standards
 
+**Shell Scripting:**
 - Use `set -euo pipefail` for error handling
-- Add descriptive log messages for all operations
 - Quote all variables: `"$variable"`
 - Use `readonly` for constants
+- Use `local` for function variables
+- Prefer `[[` over `[` for conditionals
+
+**Logging:**
+- Add descriptive log messages for all operations
+- Use appropriate log levels (INFO, DEBUG, ERROR, WARN)
+- Include context in error messages
+
+**Error Handling:**
 - Return specific exit codes (see Exit Codes section)
+- Fail fast with early validation
+- Clean up temporary files on failure
+
+**Ownership:**
 - Fix ownership of created files with `chown "$SUDO_USER:$SUDO_USER"`
+- Ensure all logs are user-accessible
+
+**Documentation:**
+- Update README for user-facing changes
+- Add inline comments for complex logic
+- Update exit codes table if adding new codes
+
+### Testing Checklist
+
+Before submitting a PR:
+- [ ] Test on fresh Ubuntu 22.04 LTS
+- [ ] Test on fresh Ubuntu 24.04 LTS
+- [ ] Test `install` command
+- [ ] Test `install --plus-docker` command
+- [ ] Test `doctor` command
+- [ ] Test with and without internet
+- [ ] Verify log file creation and ownership
+- [ ] Verify diagnostic report generation
+- [ ] Check for shellcheck warnings
+- [ ] Update documentation
+
+---
+
+## Security
+
+### Reporting Vulnerabilities
+
+If you discover a security vulnerability, please email:
+**pavaramirihagalla@icloud.com**
+
+Please do not open public issues for security vulnerabilities.
+
+### Security Considerations
+
+- DevBox requires root access for system-level operations
+- Docker installation uses official Docker scripts
+- All downloads use HTTPS
+- Logs may contain sensitive system information
+- User credentials are never logged
 
 ---
 
@@ -369,6 +778,7 @@ SOFTWARE.
 - Inspired by the need for consistent development environments
 - Built with best practices from the bash scripting community
 - Docker installation uses official Docker convenience scripts
+- Thanks to all contributors and users for feedback and improvements
 
 ---
 
@@ -377,6 +787,21 @@ SOFTWARE.
 - **Issues**: [GitHub Issues](https://github.com/PavaraM/devbox/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/PavaraM/devbox/discussions)
 - **Email**: pavaramirihagalla@icloud.com
+- **Documentation**: [docs/](docs/)
+
+---
+
+## Changelog
+
+### v1.0.0 (2026-02-14)
+- Initial release
+- Essential package installation
+- Docker and Docker Compose support
+- Comprehensive logging system
+- Diagnostic capabilities with `doctor` command
+- Modular library architecture
+- User-accessible logs
+- Automatic log archival
 
 ---
 
