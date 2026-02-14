@@ -4,6 +4,19 @@ set -euo pipefail
 # DevBox V1.0 - Development Environment Setup Script
 # Author: Pavara Mirihagalla | License: MIT | Date: 2026-02-13
 
+#exit codes:
+# 0  - Success
+# 1  - No root permission
+# 2  - No argument provided
+# 3  - Invalid argument
+# 4  - Library loading failure
+# 5  - Package installation failure
+# 6  - Docker installation failure
+# 7  - Docker service failure
+# 8  - Docker group setup failure
+# 9  - Docker Compose installation failure
+# 10 - Docker verification failure
+
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly TIMESTAMP=$(date '+%Y-%m-%d')
 readonly START_TIME=$(date +%s%3N)
