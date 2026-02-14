@@ -27,6 +27,7 @@ if ! source "$SCRIPT_DIR/lib/logging.sh"; then
 fi
 trap log_footer EXIT
 
+
 # ============================================================================
 # EARLY VALIDATION (fail fast)
 # ============================================================================
@@ -131,16 +132,34 @@ run_install() {
 }
 
 run_doctor() {
-    log INFO "Running diagnostic checks"
-    
-    # TODO: Implement comprehensive checks
-    # - Verify essential packages are installed
-    # - Check system requirements
-    # - Validate configurations
-    # - Test Docker if installed
-    
-    echo "Diagnostic checks not yet implemented"
-    log WARN "Doctor command not yet implemented"
+    log DEBUG "Loading reportig library for diagnostics..."
+    if source "$SCRIPT_DIR/lib/reporting.sh" &>> "${logfile:-/dev/null}"; then
+        log INFO "Reporting library loaded successfully for diagnostics"
+    else
+        log ERROR "Failed to load reporting library for diagnostics"
+        exit 4
+    fi
+    log DEBUG "Loading diagnostics library for diagnostics..."
+    if source "$SCRIPT_DIR/lib/diagnostics.sh" &>> "${logfile:-/dev/null}"; then
+        log INFO "Diagnostics library loaded successfully"
+    else
+        log ERROR "Failed to load diagnostics library"
+        exit 4
+    fi
+
+    GENERAL_HEALTH_CHECKS=(
+        osinfo
+        pkg_mgr_health
+        toolchain_verification
+    )
+    log DEBUG "Running diagnostic checks..."
+    for check in "${GENERAL_HEALTH_CHECKS[@]}"; do
+        if ! $check; then
+            log ERROR "Diagnostic check \"$check\" failed"
+            exit 1
+        fi
+    done
+    log INFO "All diagnostic checks passed successfully"
 }
 
 setup_docker() {

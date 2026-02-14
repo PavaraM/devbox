@@ -70,7 +70,7 @@ main_essentials() {
     check_and_install_apt net-tools net-tools || failed_packages+=("net-tools")
     check_and_install_apt ca-certificates ca-certificates || failed_packages+=("ca-certificates")
     check_and_install_apt build-essential build-essential || failed_packages+=("build-essential")
-    
+
     # Report results
     if [ ${#failed_packages[@]} -eq 0 ]; then
         log INFO "All essential packages installed successfully"
@@ -90,7 +90,7 @@ networkingtools() {
     check_and_install_apt iproute2 iproute2 || failed_packages+=("iproute2")
     check_and_install_apt dnsutils dnsutils || failed_packages+=("dnsutils")
     check_and_install_apt nmap nmap || failed_packages+=("nmap")
-    
+    # ufw, iproute2, dnsutils, nmap
     # Report results
     if [ ${#failed_packages[@]} -eq 0 ]; then
         log INFO "All networking tools installed successfully"
