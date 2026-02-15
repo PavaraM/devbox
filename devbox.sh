@@ -52,6 +52,7 @@ Usage: $0 COMMAND [OPTIONS]
 Commands:
   install       Set up development environment with essential packages
   doctor        Run diagnostic checks on the environment
+  --config      Open custom package config in editor
   --help        Display this help message
 
 Options:
@@ -75,6 +76,9 @@ Exit Codes:
   9  - Docker Compose installation failure
   10 - Docker verification failure
   11 - Diagnostic check failure
+  12 - No internet connection for diagnostics
+  13 - Essential tool missing in diagnostics
+  14 - apt package manager is not healthy
 
 EOF
     exit 0
@@ -142,7 +146,8 @@ run_install() {
 }
 
 run_doctor() {
-    #archive_old_reports
+    init_reporting
+    passed=0
     GENERAL_HEALTH_CHECKS=(
         osinfo
         pkg_mgr_health
@@ -186,6 +191,7 @@ invalid_argument() {
 
 COMMAND=""
 INSTALL_DOCKER=false
+OPEN_CONFIG=false
 
 # Parse all arguments
 while [[ $# -gt 0 ]]; do
@@ -201,9 +207,7 @@ while [[ $# -gt 0 ]]; do
             INSTALL_DOCKER=true
         ;;
         --config)
-            nano "$SCRIPT_DIR/pkg.conf"
-            log INFO "Opened pkg.conf for editing"
-
+            OPEN_CONFIG=true
         ;;
         *)
             invalid_argument "$1"
@@ -211,6 +215,13 @@ while [[ $# -gt 0 ]]; do
     esac
     shift
 done
+
+# Open config and exit when no command is requested
+if [[ "$OPEN_CONFIG" == true && -z "$COMMAND" ]]; then
+    nano "$SCRIPT_DIR/pkg.conf"
+    log INFO "Opened pkg.conf for editing"
+    exit 0
+fi
 
 # Validate that a command was provided
 if [[ -z "$COMMAND" ]]; then

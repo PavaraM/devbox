@@ -102,7 +102,9 @@ custom_packages_check() {
 }
 
 report_summary() {
-    if [ $passed -eq 4 ]; then
+    local total_checks="${#GENERAL_HEALTH_CHECKS[@]}"
+
+    if [ "$passed" -eq "$total_checks" ]; then
         status="PASSED"
     else
         status="FAILED"
@@ -111,7 +113,7 @@ report_summary() {
     echo "======================="
     echo "Diagnostic Summary"
     echo "status: $status"
-    echo "checks_passed: $passed/4"
+    echo "checks_passed: $passed/$total_checks"
     echo "report generated at: $reportfile"
     echo "======================="
 }

@@ -1,4 +1,4 @@
-# lib/essentials.sh
+# lib/packages.sh
 # This file contains functions to check and install essential packages for development.
 
 apt_update() {
@@ -105,6 +105,7 @@ networkingtools() {
 custom_packages() {
     log DEBUG "Checking for custom packages to install from \"$SCRIPT_DIR/pkg.conf\"..."
     source "$SCRIPT_DIR/pkg.conf"
+    local failed_packages=()
     if [ ${#CUSTOM_PACKAGES[@]} -eq 0 ]; then
         log INFO "No custom packages to install"
         return 0
@@ -119,5 +120,11 @@ custom_packages() {
             log INFO "Custom package $pkg installed successfully"
         fi
     done
-}
 
+    if [ ${#failed_packages[@]} -eq 0 ]; then
+        return 0
+    fi
+
+    log ERROR "Failed to install ${#failed_packages[@]} custom package(s): ${failed_packages[*]}"
+    return 5
+}

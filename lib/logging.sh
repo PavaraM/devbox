@@ -9,7 +9,7 @@ mkdir -p "$SCRIPT_DIR/logs/archive/apt/"
 logfile="$SCRIPT_DIR/logs/devbox_$TIMESTAMP.log"
 
 # Set ownership of logs to the invoking user if running with sudo
-if [[ -n "$SUDO_USER" ]]; then
+if [[ -n "${SUDO_USER:-}" ]]; then
     chown -R "$SUDO_USER:$SUDO_USER" "$SCRIPT_DIR/logs/"
 fi
 
@@ -28,7 +28,7 @@ echo "------------------------------" >> "$logfile"
 echo " " >> "$logfile" 
 
 # Set ownership of the new log file
-if [[ -n "$SUDO_USER" ]]; then
+if [[ -n "${SUDO_USER:-}" ]]; then
     chown "$SUDO_USER:$SUDO_USER" "$logfile"
 fi
 
@@ -44,7 +44,7 @@ log_footer() {
     echo "==============================" >> "$logfile"
     echo " " >> "$logfile"
     # Fix ownership one final time (in case any logs were created as root)
-    if [[ -n "$SUDO_USER" ]]; then
+    if [[ -n "${SUDO_USER:-}" ]]; then
         chown -R "$SUDO_USER:$SUDO_USER" "$SCRIPT_DIR/logs/"
     fi
 }
@@ -58,3 +58,4 @@ log() {
     #echo "$line"
     echo "$line" >> "$logfile"
 }
+ 

@@ -626,7 +626,7 @@ report_summary >> "$logfile"
 =======================
 Diagnostic Summary
 status: PASSED
-checks_passed: 3/3
+checks_passed: 4/4
 report generated at: diagnostic_reports/report-2026-02-14-01-45-38.log
 =======================
 ```
