@@ -147,6 +147,7 @@ run_doctor() {
         osinfo
         pkg_mgr_health
         toolchain_verification
+        custom_packages_check
     )
     echo "Running diagnostics..."
     log DEBUG "Running diagnostic checks..."
@@ -198,6 +199,11 @@ while [[ $# -gt 0 ]]; do
         ;;
         --plus-docker)
             INSTALL_DOCKER=true
+        ;;
+        --config)
+            nano "$SCRIPT_DIR/pkg.conf"
+            log INFO "Opened pkg.conf for editing"
+
         ;;
         *)
             invalid_argument "$1"

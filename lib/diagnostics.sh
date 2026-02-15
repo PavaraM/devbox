@@ -74,6 +74,33 @@ toolchain_verification() {
     fi
 }
 
+custom_packages_check() {
+    report DEBUG "Checking custom packages..."
+    source "$SCRIPT_DIR/pkg.conf"
+    if [ ${#CUSTOM_PACKAGES[@]} -eq 0 ]; then
+        report INFO "No custom packages defined in pkg.conf"
+        passed=$((passed + 1))
+        return 0
+    fi
+    local all_ok=true
+    for pkg in "${CUSTOM_PACKAGES[@]}"; do
+        if ! dpkg -s "$pkg" &>/dev/null; then
+            report ERROR "Custom package \"$pkg\" is missing"
+            all_ok=false
+        else
+            report INFO "Custom package \"$pkg\" is present."
+        fi
+    done
+    if [ "$all_ok" = true ]; then
+        report INFO "All custom packages are present"
+        passed=$((passed + 1))
+        return 0
+    else
+        report ERROR "One or more custom packages are missing"
+        return 14
+    fi
+}
+
 report_summary() {
     if [ $passed -eq 3 ]; then
         status="PASSED"
