@@ -20,6 +20,7 @@ DevBox automates the tedious setup of development environments by installing ess
 🛡️ **Robust Error Handling** - Granular exit codes for easy debugging  
 ⚡ **Idempotent Operations** - Safe to run multiple times  
 📝 **User-Accessible Logs** - Logs owned by your user, not root  
+🎯 **Custom Package Support** - Easy configuration for additional packages via `pkg.conf`
 
 ---
 
@@ -76,7 +77,10 @@ devbox/
 │   └── archive/           # Archived reports
 ├── docs/
 │   ├── README.md          # This file
-│   └── DEBUGGING.md       # Debugging guide
+│   ├── API.md             # API documentation for developers
+│   ├── DEBUGGING.md       # Debugging guide
+│   └── QUICKREF.md        # Quick reference guide
+├── pkg.conf               # Custom package configuration
 ├── LICENSE                # MIT License
 └── VERSION                # Version information
 ```
@@ -105,6 +109,9 @@ sudo ./devbox.sh install
 **Networking Tools:**
 - **Firewall**: ufw (Uncomplicated Firewall)
 - **Network Utilities**: iproute2, dnsutils, nmap
+
+**Custom Packages:**
+- Any packages defined in `pkg.conf`
 
 #### `install --plus-docker`
 Install everything plus Docker and Docker Compose.
@@ -147,6 +154,10 @@ sudo ./devbox.sh doctor
    - Validates networking utilities
    - Reports missing packages
 
+4. **Custom Package Verification**
+   - Validates packages defined in `pkg.conf`
+   - Reports any missing custom packages
+
 **Output:**
 - Generates timestamped diagnostic report in `diagnostic_reports/`
 - Displays summary with pass/fail status
@@ -161,10 +172,11 @@ Running diagnostics...
 [INFO] Internet Connectivity: online
 [INFO] APT package manager is healthy
 [INFO] All essential development tools are present
+[INFO] All custom packages are present
 =======================
 Diagnostic Summary
 status: PASSED
-checks_passed: 3/3
+checks_passed: 4/4
 report generated at: diagnostic_reports/report-2026-02-14-01-45-38.log
 =======================
 ```
@@ -269,7 +281,31 @@ Script ended at Sat Feb 14 01:45:40 +0530 2026 exit_code=0 duration=2.192s
 
 ### Custom Package Installation
 
-Edit `lib/packages.sh` to add your own packages:
+DevBox supports custom package installation via the `pkg.conf` file:
+
+**Edit `pkg.conf`:**
+```bash
+CUSTOM_PACKAGES=(
+    "python3-pip"
+    "nodejs"
+    "npm"
+    "golang-go"
+)
+```
+
+Then run:
+```bash
+sudo ./devbox.sh install
+```
+
+Custom packages are automatically:
+- Checked during installation
+- Validated during `doctor` diagnostics
+- Logged separately for easy troubleshooting
+
+### Modifying Core Packages
+
+Edit `lib/packages.sh` to add your own package groups:
 
 ```bash
 main_essentials() {
@@ -303,150 +339,12 @@ The `networkingtools()` function is enabled by default. To disable it, modify `d
 ```bash
 run_install() {
     log INFO "Starting installation process"
-    
-    if ! main_essentials; then
-        log ERROR "Failed to install essential packages"
-        exit 5
-    fi
-
-    # Comment out to skip networking tools
-    # if ! networkingtools; then
-    #     log ERROR "Failed to install networking tools"
-    #     exit 5
-    # fi
-    
+    main_essentials
+    # networkingtools  # Comment this out to disable
+    custom_packages
     log INFO "Installation completed successfully"
 }
 ```
-
-### Adding Custom Diagnostic Checks
-
-Extend `lib/diagnostics.sh` with your own checks:
-
-```bash
-check_nodejs_version() {
-    report DEBUG "Checking Node.js installation..."
-    
-    if ! command -v node &> /dev/null; then
-        report ERROR "Node.js is not installed"
-        return 1
-    fi
-    
-    local node_version=$(node --version)
-    report INFO "Node.js version: $node_version"
-    
-    passed=$((passed + 1))
-    return 0
-}
-```
-
-Then add it to the checks array in `devbox.sh`:
-
-```bash
-run_doctor() {
-    GENERAL_HEALTH_CHECKS=(
-        osinfo
-        pkg_mgr_health
-        toolchain_verification
-        check_nodejs_version  # Your custom check
-    )
-    # ... rest of function
-}
-```
-
----
-
-## Architecture
-
-### Design Principles
-
-1. **Fail Fast** - Early validation prevents wasted execution
-2. **Modular Libraries** - Each concern isolated in its own file
-3. **Defensive Programming** - Extensive error checking and logging
-4. **Idempotency** - Safe to re-run without side effects
-5. **Transparency** - Detailed logging of all operations
-6. **User-Friendly** - Logs accessible without sudo
-
-### Library Overview
-
-#### `lib/logging.sh`
-**Purpose:** Centralized logging infrastructure
-
-**Features:**
-- Timestamp-based log file creation
-- Execution duration tracking with millisecond precision
-- Structured logging with levels (INFO, DEBUG, ERROR, WARN)
-- Automatic log archival (7+ days)
-- User ownership management (fixes root-owned logs)
-- Automatic directory creation for logs and archives
-
-**Key Functions:**
-- `log()` - Main logging function
-- `log_footer()` - Exit handler for duration and cleanup
-
-#### `lib/packages.sh`
-**Purpose:** Package installation and management
-
-**Features:**
-- Generic `check_and_install_apt()` helper
-- Pre-configured package collections
-- Per-package APT logging
-- Failed package tracking and reporting
-- Silent installation with logged output
-- Idempotent checks (skips already installed)
-
-**Key Functions:**
-- `check_and_install_apt(name, pkg_name)` - Install single package
-- `main_essentials()` - Core development packages
-- `networkingtools()` - Network utilities
-- `apt_update()` - Update and upgrade system (optional)
-
-#### `lib/docker.sh`
-**Purpose:** Docker and Docker Compose installation
-
-**Features:**
-- Uses official Docker convenience script
-- Modern Docker Compose plugin installation (not standalone)
-- Architecture detection (x86_64, aarch64, armv7)
-- Service configuration and verification
-- User group management for non-root access
-- Comprehensive error handling
-- Both plugin and standalone Compose detection
-
-**Key Functions:**
-- `install_docker()` - Docker engine installation
-- `docker_compose_setup()` - Docker Compose plugin
-- `docker_setup()` - Complete Docker environment setup
-
-#### `lib/diagnostics.sh`
-**Purpose:** System health checks and verification
-
-**Features:**
-- OS and kernel information collection
-- Package manager health validation
-- Internet connectivity testing
-- Tool availability verification
-- Pass/fail counting for summary
-
-**Key Functions:**
-- `osinfo()` - System information collection
-- `pkg_mgr_health()` - APT and dpkg status checks
-- `toolchain_verification()` - Essential tool validation
-- `report_summary()` - Generates pass/fail summary
-
-#### `lib/reporting.sh`
-**Purpose:** Diagnostic report generation
-
-**Features:**
-- Timestamped report files
-- Automatic report archival
-- Dual logging (report file + main log)
-- Console output for user feedback
-
-**Key Functions:**
-- `report()` - Write to report and log
-- `report_header()` - Initialize report file
-- `archive_old_reports()` - Move old reports to archive
 
 ---
 
@@ -454,53 +352,33 @@ run_doctor() {
 
 ### Common Issues
 
-#### Script must be run as root
+**Package Installation Failed:**
 ```bash
-Error: This script must be run as root
+# Check which package failed
+grep "installation failed" logs/devbox_*.log
 
-Solution:
+# View package-specific log
+cat logs/apt/apt_*-git.log
+
+# Fix broken packages
+sudo dpkg --configure -a
+sudo apt --fix-broken install
+
+# Retry
 sudo ./devbox.sh install
 ```
 
-#### Library loading failure
+**Docker Permission Denied:**
 ```bash
-Error: Required library not found: /path/to/lib/packages.sh
+# Add user to docker group
+sudo usermod -aG docker $USER
 
-Solution:
-chmod +x lib/*.sh
-# Or re-clone the repository
+# Apply changes (choose one):
+newgrp docker    # Current session
+logout           # Then login again
 ```
 
-#### Docker group not taking effect
-```bash
-# After installation, Docker commands still require sudo
-
-Solution:
-newgrp docker
-# Or log out and back in completely
-```
-
-#### Logs are root-owned
-```bash
-# Can't read log files without sudo
-
-Solution:
-# DevBox automatically fixes this, but if needed:
-sudo chown -R $USER:$USER logs/
-```
-
-#### Package installation fails
-```bash
-Check the specific package log:
-cat logs/apt/apt_2026-02-14-packagename.log
-
-Common causes:
-- Internet connectivity issues
-- Repository configuration problems
-- Disk space constraints
-```
-
-#### dpkg lock error
+**APT Locked:**
 ```bash
 [ERROR] dpkg is locked
 
@@ -585,12 +463,12 @@ cat diagnostic_reports/report-*.log
 ### Development Workstation
 
 ```bash
+# Add custom packages first
+nano pkg.conf
+# Add: python3-pip, nodejs, npm, etc.
+
 # Full setup with Docker
 sudo ./devbox.sh install --plus-docker
-
-# Add custom tools to lib/packages.sh
-# Then re-run
-sudo ./devbox.sh install
 
 # Periodic health checks
 sudo ./devbox.sh doctor
@@ -604,6 +482,7 @@ sudo ./devbox.sh doctor
 - Always run `doctor` after `install` to verify setup
 - Review logs if any package fails to install
 - Run `install` again if network issues interrupted first attempt
+- Use `pkg.conf` for custom packages instead of modifying core code
 
 ### Logging
 - Check the main log for overview: `logs/devbox_$(date +%Y-%m-%d).log`
@@ -620,33 +499,10 @@ sudo ./devbox.sh doctor
 - Save diagnostic reports for troubleshooting history
 - Use diagnostic reports when seeking support
 
----
-
-## Roadmap
-
-### v1.1 (In Development)
-- [x] Implement `doctor` command with health checks
-- [x] Diagnostic report generation
-- [x] Package manager health validation
-- [ ] Add `--dry-run` flag for safe testing
-- [ ] Support for additional Linux distributions
-- [ ] Configuration file support
-- [ ] Color-coded console output
-- [ ] `--quiet` and `--verbose` modes
-
-### v1.2 (Planned)
-- [ ] Rollback functionality
-- [ ] Update checking for installed packages
-- [ ] Custom package profiles
-- [ ] Remote configuration management
-- [ ] Email notifications for long operations
-
-### v2.0 (Future)
-- [ ] Web dashboard for remote management
-- [ ] Plugin system for extensibility
-- [ ] Multi-language runtime support (Python, Node, Go, Rust)
-- [ ] Container orchestration templates
-- [ ] Infrastructure as Code integration
+### Custom Packages
+- Use `pkg.conf` for project-specific or environment-specific packages
+- Keep core packages in `lib/packages.sh` for universal needs
+- Document your custom packages for team members
 
 ---
 
@@ -802,6 +658,7 @@ SOFTWARE.
 - Modular library architecture
 - User-accessible logs
 - Automatic log archival
+- Custom package support via `pkg.conf`
 
 ---
 

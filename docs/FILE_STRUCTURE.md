@@ -1,0 +1,276 @@
+# DevBox v1.0 - File Structure
+
+## Project Structure
+
+```
+devbox/
+├── devbox.sh
+├── pkg.conf
+├── VERSION
+├── LICENSE
+│
+├── lib/
+│   ├── diagnostics.sh
+│   ├── docker.sh
+│   ├── logging.sh
+│   ├── packages.sh
+│   └── reporting.sh
+│
+├── docs/
+│   ├── API.md
+│   ├── CONTRIBUTING.md
+│   ├── DEBUGGING.md
+│   ├── FILE_STRUCTURE.md
+│   ├── QUICKREF.md
+│   └── README.md
+│
+├── logs/                               (auto-generated)
+│   ├── devbox_YYYY-MM-DD.log
+│   ├── apt/
+│   │   └── apt_YYYY-MM-DD-package.log
+│   └── archive/
+│       └── apt/
+│
+└── diagnostic_reports/                 (auto-generated)
+    ├── report-YYYY-MM-DD-HH-MM-SS.log
+    └── archive/
+```
+
+---
+
+## File Descriptions
+
+### Root Directory
+
+**devbox.sh**
+- Main executable script
+- Entry point for all commands
+- Loads library modules and orchestrates operations
+
+**pkg.conf**
+- Custom package configuration
+- Defines CUSTOM_PACKAGES array
+- Sourced by packages.sh
+
+**VERSION**
+- Version number and build information
+- Format: version, build date, tested platform
+
+**LICENSE**
+- MIT License text
+
+---
+
+### lib/ Directory
+
+**logging.sh**
+- Logging infrastructure
+- Creates and manages log files
+- Auto-archives logs older than 7 days
+- Manages file ownership
+
+**packages.sh**
+- Package installation functions
+- `apt_update()` - System update
+- `check_and_install_apt()` - Generic installer
+- `main_essentials()` - Core packages
+- `networkingtools()` - Network utilities
+- `custom_packages()` - Custom package installation
+
+**docker.sh**
+- Docker installation and setup
+- `install_docker()` - Install Docker Engine
+- `docker_compose_setup()` - Install Docker Compose
+- `docker_setup()` - Complete Docker configuration
+
+**diagnostics.sh**
+- System health checks
+- `osinfo()` - OS information
+- `pkg_mgr_health()` - Package manager status
+- `toolchain_verification()` - Tool presence check
+- `custom_packages_check()` - Custom package verification
+- `report_summary()` - Generate summary
+
+**reporting.sh**
+- Diagnostic report generation
+- Creates timestamped reports
+- Archives old reports
+- Dual output (console + file)
+
+---
+
+### docs/ Directory
+
+**README.md**
+- Main project documentation
+- Usage instructions and examples
+- Feature list and exit codes
+
+**API.md**
+- Developer reference
+- Function documentation
+- Library architecture
+- Best practices
+
+**DEBUGGING.md**
+- Troubleshooting guide
+- Exit code reference
+- Common issues and solutions
+- Debug procedures
+
+**QUICKREF.md**
+- Quick reference guide
+- Command examples
+- Common tasks
+- File locations
+
+**CONTRIBUTING.md**
+- Contributor guidelines
+- Development setup
+- Coding standards
+- Pull request process
+
+**FILE_STRUCTURE.md**
+- This file
+- Project structure documentation
+
+---
+
+### Runtime Directories
+
+**logs/**
+- Main execution logs: `devbox_YYYY-MM-DD.log`
+- Per-package logs: `apt/apt_YYYY-MM-DD-package.log`
+- Archive directory for logs older than 7 days
+- Created automatically on first run
+- User-owned (not root)
+
+**diagnostic_reports/**
+- Diagnostic reports: `report-YYYY-MM-DD-HH-MM-SS.log`
+- Archive directory for old reports
+- Created automatically by `doctor` command
+- Contains system health check results
+
+---
+
+## Installed Packages
+
+### Core Development Tools
+- git-all
+- curl
+- wget
+- htop
+- tmux
+- neovim
+- unzip
+- tree
+- net-tools
+- ca-certificates
+- build-essential
+
+### Networking Tools
+- ufw
+- iproute2
+- dnsutils
+- nmap
+
+### Custom Packages
+- Defined in pkg.conf
+- User-configurable
+
+---
+
+## Commands
+
+**install**
+- Install essential development packages
+- Usage: `sudo ./devbox.sh install`
+
+**install --plus-docker**
+- Install packages and Docker
+- Usage: `sudo ./devbox.sh install --plus-docker`
+
+**doctor**
+- Run system diagnostics
+- Usage: `sudo ./devbox.sh doctor`
+
+**--help**
+- Display help information
+- Usage: `./devbox.sh --help`
+
+---
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | No root permission |
+| 2 | No argument provided |
+| 3 | Invalid argument |
+| 4 | Library loading failure |
+| 5 | Package installation failure |
+| 6 | Docker installation failure |
+| 7 | Docker service failure |
+| 8 | Docker group setup failure |
+| 9 | Docker Compose installation failure |
+| 10 | Docker verification failure |
+| 11 | Diagnostic check failure |
+| 12 | No internet connection |
+| 13 | Essential tool missing |
+| 14 | APT package manager unhealthy |
+
+---
+
+## File Permissions
+
+```bash
+# Executable files
+chmod +x devbox.sh
+chmod +x lib/*.sh
+
+# Configuration and documentation
+chmod 644 pkg.conf
+chmod 644 VERSION
+chmod 644 LICENSE
+chmod 644 docs/*.md
+```
+
+---
+
+## Log Format
+
+### Main Log (logs/devbox_YYYY-MM-DD.log)
+```
+script started at [date]
+command: devbox [command]
+system: [uname output]
+user: [username]
+------------------------------
+
+YYYY-MM-DD HH:MM:SS [LEVEL] message
+
+------------------------------
+Script ended at [date] exit_code=N duration=X.XXXs
+==============================
+```
+
+### Diagnostic Report (diagnostic_reports/report-*.log)
+```
+Diagnostic Report - YYYY-MM-DD
+Generated by devbox diagnostics
+======================================
+
+[LEVEL] message
+[LEVEL] message
+
+=======================
+Diagnostic Summary
+status: PASSED/FAILED
+checks_passed: N/M
+=======================
+```
+
+---
+
+DevBox v1.0
