@@ -59,6 +59,7 @@ Available to all libraries after `devbox.sh` initialization:
 ## Logging API
 
 ### Source
+
 `lib/logging.sh`
 
 ### Functions
@@ -68,12 +69,14 @@ Available to all libraries after `devbox.sh` initialization:
 Write a log entry to the main log file.
 
 **Parameters:**
+
 - `level` (string): Log level - `INFO`, `DEBUG`, `ERROR`, `WARN`
 - `message` (string...): Message to log (multiple arguments joined)
 
 **Returns:** None
 
 **Example:**
+
 ```bash
 log INFO "Starting installation"
 log DEBUG "Checking package: $package_name"
@@ -82,6 +85,7 @@ log WARN "Internet connectivity unavailable"
 ```
 
 **Output Format:**
+
 ```
 2026-02-14 01:45:38 [INFO] Starting installation
 2026-02-14 01:45:38 [DEBUG] Checking package: git
@@ -98,6 +102,7 @@ Automatically called on script exit. Logs execution summary and fixes ownership.
 **Returns:** None
 
 **Example:**
+
 ```bash
 # Set as trap in devbox.sh
 trap log_footer EXIT
@@ -113,6 +118,7 @@ trap log_footer EXIT
 #### Automatic Features
 
 **Log Creation:**
+
 ```bash
 # Automatically creates:
 logs/devbox_$TIMESTAMP.log
@@ -122,12 +128,14 @@ logs/archive/apt/
 ```
 
 **Log Archival:**
+
 ```bash
 # Automatically archives logs older than 7 days
 find "$SCRIPT_DIR/logs/" -name "devbox_*.log" -mtime +7 -exec mv {} "logs/archive/" \;
 ```
 
 **Ownership Management:**
+
 ```bash
 # All logs automatically owned by invoking user (not root)
 if [[ -n "$SUDO_USER" ]]; then
@@ -159,6 +167,7 @@ my_function() {
 ## Package Management API
 
 ### Source
+
 `lib/packages.sh`
 
 ### Functions
@@ -168,20 +177,24 @@ my_function() {
 Generic helper to check and install APT packages.
 
 **Parameters:**
+
 - `name` (string): Display name for logging
 - `pkg_name` (string): Actual APT package name
 
 **Returns:**
+
 - `0` - Success (already installed or newly installed)
 - `5` - Installation failed
 
 **Features:**
+
 - Idempotent (skips if already installed)
 - Creates per-package log: `logs/apt/apt_$TIMESTAMP-$name.log`
 - User-friendly console output
 - Automatic ownership fixing
 
 **Example:**
+
 ```bash
 # Install git
 check_and_install_apt git git-all
@@ -197,12 +210,14 @@ fi
 ```
 
 **Console Output:**
+
 ```
 git is not installed, installing now...
 git installed successfully.
 ```
 
 **Log Output:**
+
 ```
 2026-02-14 01:45:38 [DEBUG] Checking if git is installed on this system...
 2026-02-14 01:45:38 [INFO] git not installed
@@ -217,10 +232,12 @@ Install core development packages.
 **Parameters:** None
 
 **Returns:**
+
 - `0` - All packages installed successfully
 - `5` - One or more packages failed
 
 **Installs:**
+
 - git-all
 - curl
 - wget
@@ -234,6 +251,7 @@ Install core development packages.
 - build-essential
 
 **Example:**
+
 ```bash
 if ! main_essentials; then
     log ERROR "Failed to install essential packages"
@@ -248,16 +266,19 @@ Install networking utilities.
 **Parameters:** None
 
 **Returns:**
+
 - `0` - All tools installed successfully
 - `5` - One or more tools failed
 
 **Installs:**
+
 - ufw
 - iproute2
 - dnsutils
 - nmap
 
 **Example:**
+
 ```bash
 if ! networkingtools; then
     log ERROR "Failed to install networking tools"
@@ -272,10 +293,12 @@ Update and upgrade system packages (currently commented out in main script).
 **Parameters:** None
 
 **Returns:**
+
 - `0` - Success
 - `5` - Failed
 
 **Example:**
+
 ```bash
 # Uncomment in devbox.sh run_install() to enable
 apt_update
@@ -322,6 +345,7 @@ nodejs_stack() {
 ```
 
 Then in `devbox.sh`:
+
 ```bash
 run_install() {
     log INFO "Starting installation process"
@@ -338,6 +362,7 @@ run_install() {
 ## Docker API
 
 ### Source
+
 `lib/docker.sh`
 
 ### Functions
@@ -349,16 +374,19 @@ Install Docker Engine using official convenience script.
 **Parameters:** None
 
 **Returns:**
+
 - `0` - Docker installed (or already present)
 - `6` - Installation failed
 
 **Features:**
+
 - Checks for existing installation
 - Downloads official script to `/tmp/get-docker.sh`
 - Cleans up script after installation
 - Logs all output
 
 **Example:**
+
 ```bash
 if ! install_docker; then
     log ERROR "Docker installation failed"
@@ -373,10 +401,12 @@ Install Docker Compose plugin.
 **Parameters:** None
 
 **Returns:**
+
 - `0` - Docker Compose available (plugin or standalone)
 - `9` - Installation failed
 
 **Features:**
+
 - Checks for plugin first (`docker compose`)
 - Falls back to standalone check (`docker-compose`)
 - Architecture detection (x86_64, aarch64, armv7)
@@ -384,11 +414,13 @@ Install Docker Compose plugin.
 - Installs to `/usr/local/lib/docker/cli-plugins/docker-compose`
 
 **Supported Architectures:**
+
 - x86_64
 - aarch64
 - armv7
 
 **Example:**
+
 ```bash
 if ! docker_compose_setup; then
     log ERROR "Docker Compose installation failed"
@@ -403,6 +435,7 @@ Complete Docker environment setup.
 **Parameters:** None
 
 **Returns:**
+
 - `0` - Full Docker environment ready
 - `6` - Docker installation failed
 - `7` - Service start/enable failed
@@ -411,6 +444,7 @@ Complete Docker environment setup.
 - `10` - Verification failed
 
 **Process:**
+
 1. Install Docker Engine
 2. Start Docker daemon
 3. Enable Docker on boot
@@ -419,6 +453,7 @@ Complete Docker environment setup.
 6. Verify installation
 
 **Example:**
+
 ```bash
 if ! docker_setup; then
     log ERROR "Docker setup failed"
@@ -457,6 +492,7 @@ local compose_version="v2.24.5"  # Change this
 ## Diagnostics API
 
 ### Source
+
 `lib/diagnostics.sh`
 
 ### Global Variables
@@ -474,9 +510,11 @@ Collect and report system information.
 **Parameters:** None
 
 **Returns:**
+
 - `0` - Always succeeds
 
 **Collects:**
+
 - Distribution name and version
 - Kernel version
 - System architecture
@@ -484,6 +522,7 @@ Collect and report system information.
 - Internet connectivity status
 
 **Example:**
+
 ```bash
 osinfo
 # Increments $passed counter
@@ -491,6 +530,7 @@ osinfo
 ```
 
 **Output:**
+
 ```
 [INFO] Distro: Ubuntu 24.04 LTS
 [INFO] Kernel: 6.17.0-14-generic
@@ -506,17 +546,20 @@ Verify APT package manager health.
 **Parameters:** None
 
 **Returns:**
+
 - `0` - APT is healthy
 - `1` - APT not found
 - `11` - dpkg is locked
 - `15` - Broken packages detected
 
 **Checks:**
+
 - APT availability
 - dpkg lock status
 - Broken package detection
 
 **Example:**
+
 ```bash
 if ! pkg_mgr_health; then
     report ERROR "Package manager is unhealthy"
@@ -531,10 +574,12 @@ Verify essential development tools are installed.
 **Parameters:** None
 
 **Returns:**
+
 - `0` - All tools present
 - `13` - One or more tools missing
 
 **Checks For:**
+
 - git
 - curl
 - wget
@@ -552,6 +597,7 @@ Verify essential development tools are installed.
 - nmap
 
 **Example:**
+
 ```bash
 if ! toolchain_verification; then
     report ERROR "Missing essential tools"
@@ -568,12 +614,14 @@ Generate diagnostic summary.
 **Returns:** None (outputs to stdout and files)
 
 **Example:**
+
 ```bash
 report_summary >> "$reportfile"
 report_summary >> "$logfile"
 ```
 
 **Output:**
+
 ```
 =======================
 Diagnostic Summary
@@ -641,6 +689,7 @@ check_docker_status() {
 ```
 
 Add to `devbox.sh`:
+
 ```bash
 run_doctor() {
     GENERAL_HEALTH_CHECKS=(
@@ -664,6 +713,7 @@ run_doctor() {
 ## Reporting API
 
 ### Source
+
 `lib/reporting.sh`
 
 ### Global Variables
@@ -679,17 +729,20 @@ run_doctor() {
 Write to both diagnostic report and main log.
 
 **Parameters:**
+
 - `level` (string): Report level - `INFO`, `DEBUG`, `ERROR`, `WARN`
 - `message` (string...): Message to report
 
 **Returns:** None
 
 **Output:**
+
 - Console (stdout)
 - Diagnostic report file
 - Main log file
 
 **Example:**
+
 ```bash
 report INFO "System check passed"
 report DEBUG "Checking component X"
@@ -700,6 +753,7 @@ report WARN "Component Z deprecated"
 **Output Files:**
 
 **diagnostic_reports/report-*.log:**
+
 ```
 [INFO] System check passed
 [DEBUG] Checking component X
@@ -708,6 +762,7 @@ report WARN "Component Z deprecated"
 ```
 
 **logs/devbox_*.log:**
+
 ```
 2026-02-14 01:45:38 [INFO] System check passed
 2026-02-14 01:45:38 [DEBUG] Checking component X
@@ -716,6 +771,7 @@ report WARN "Component Z deprecated"
 ```
 
 **Console:**
+
 ```
 System check passed
 Checking component X
@@ -734,6 +790,7 @@ Initialize diagnostic report file.
 **Automatically called** when `reporting.sh` is loaded.
 
 **Output:**
+
 ```
 Diagnostic Report - 2026-02-14
 Generated by devbox diagnostics
@@ -751,6 +808,7 @@ Move old diagnostic reports to archive.
 **Automatically called** when `reporting.sh` is loaded.
 
 **Example:**
+
 ```bash
 # Manual archival if needed
 archive_old_reports
@@ -824,12 +882,14 @@ _helper_function() {
 ### Integration with DevBox
 
 **1. Add library to `lib/` directory:**
+
 ```bash
 touch lib/mymodule.sh
 chmod +x lib/mymodule.sh
 ```
 
 **2. Load in `devbox.sh`:**
+
 ```bash
 # In LOAD LIBRARIES section
 for lib in packages.sh docker.sh reporting.sh diagnostics.sh mymodule.sh; do
@@ -843,6 +903,7 @@ done
 ```
 
 **3. Use in commands:**
+
 ```bash
 # Create new command
 run_mycommand() {
@@ -871,6 +932,7 @@ esac
 ```
 
 **4. Update help text:**
+
 ```bash
 Commands:
   install       Set up development environment
@@ -1016,6 +1078,7 @@ When creating custom functions, use these exit code ranges:
 | 30-39 | Reserved | Future use |
 
 Example:
+
 ```bash
 # In your custom module
 readonly ERR_MY_MODULE_INIT=20

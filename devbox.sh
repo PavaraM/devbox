@@ -1,6 +1,5 @@
 #!/bin/bash
 set -euo pipefail
-
 # DevBox V1.0 - Development Environment Setup Script
 # Author: Pavara Mirihagalla | License: MIT | Date: 2026-02-13
 
@@ -128,11 +127,16 @@ run_install() {
         log ERROR "Failed to install essential packages"
         exit 5
     fi
-
+    
     if ! networkingtools; then
         log ERROR "Failed to install networking tools"
         exit 5
     fi
+
+    if ! custom_packages; then
+        log ERROR "Failed to install custom packages"
+        exit 5
+     fi
     
     log INFO "Installation completed successfully"
 }
@@ -191,13 +195,13 @@ while [[ $# -gt 0 ]]; do
                 exit 3
             fi
             COMMAND="$1"
-            ;;
+        ;;
         --plus-docker)
             INSTALL_DOCKER=true
-            ;;
+        ;;
         *)
             invalid_argument "$1"
-            ;;
+        ;;
     esac
     shift
 done
@@ -223,12 +227,12 @@ case "$COMMAND" in
         if [[ "$INSTALL_DOCKER" == true ]]; then
             setup_docker
         fi
-        ;;
+    ;;
     doctor)
-        run_doctor 
+        run_doctor
         report_summary >> "$reportfile"
         report_summary >> "$logfile"
-        ;;
+    ;;
 esac
 
 log INFO "Script completed successfully"
