@@ -196,7 +196,7 @@ OPEN_CONFIG=false
 # Parse all arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        install|doctor)
+        install|doctor|create-vm)
             if [[ -n "$COMMAND" ]]; then
                 echo "Error: Multiple commands specified" >&2
                 exit 3
@@ -249,6 +249,11 @@ case "$COMMAND" in
         run_doctor
         report_summary >> "$reportfile"
         report_summary >> "$logfile"
+    ;;
+    create-vm)
+        echo "VM creation is not implemented yet"
+        log ERROR "create-vm command is not implemented"
+        exit 3
     ;;
 esac
 
