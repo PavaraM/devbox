@@ -21,6 +21,8 @@ find "$SCRIPT_DIR/logs/apt/" -type f -name "apt_*.log" -mtime +7 -exec mv {} "$S
 echo "script started at $(date)" >> "$logfile"
 echo "command: devbox $@" >> "$logfile"
 echo "system: $(uname -a)" >> "$logfile"
+echo "shell: $SHELL" >> "$logfile"
+echo "SCRIPT_DIR: $SCRIPT_DIR" >> "$logfile"
 echo "user: $USER (SUDO_USER: ${SUDO_USER:-none})" >> "$logfile"
 echo "------------------------------" >> "$logfile"
 echo " " >> "$logfile" 
