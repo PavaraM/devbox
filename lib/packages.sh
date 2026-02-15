@@ -103,16 +103,21 @@ networkingtools() {
 }
 
 custom_packages() {
+    log DEBUG "Checking for custom packages to install from \"$SCRIPT_DIR/pkg.conf\"..."
     source "$SCRIPT_DIR/pkg.conf"
     if [ ${#CUSTOM_PACKAGES[@]} -eq 0 ]; then
         log INFO "No custom packages to install"
         return 0
     fi
+    echo "Custom packages to install: ${CUSTOM_PACKAGES[*]}"
     log INFO "Installing custom packages: ${CUSTOM_PACKAGES[*]}"
-    local failed_packages=()
     for pkg in "${CUSTOM_PACKAGES[@]}"; do
-        check_and_install_apt "$pkg" "$pkg" || failed_packages+=("$pkg")
+        if ! check_and_install_apt "$pkg" "$pkg"; then
+            log ERROR "Failed to install custom package: $pkg"
+            failed_packages+=("$pkg")
+        else
+            log INFO "Custom package $pkg installed successfully"
+        fi
     done
-    
 }
 
