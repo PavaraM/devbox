@@ -102,7 +102,7 @@ custom_packages_check() {
 }
 
 report_summary() {
-    if [ $passed -eq 3 ]; then
+    if [ $passed -eq 4 ]; then
         status="PASSED"
     else
         status="FAILED"
@@ -111,7 +111,7 @@ report_summary() {
     echo "======================="
     echo "Diagnostic Summary"
     echo "status: $status"
-    echo "checks_passed: $passed/3"
+    echo "checks_passed: $passed/4"
     echo "report generated at: $reportfile"
     echo "======================="
 }
