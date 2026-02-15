@@ -33,11 +33,12 @@ fi
 log_footer() {
     local exit_code=$?
     END_TIME=$(date +%s%3N)
-    
+    DEBUGGING_GUIDE="$SCRIPT_DIR/docs/DEBUGGING.md"
     duration_ms=$((END_TIME - START_TIME))
     duration_s=$(awk "BEGIN {printf \"%.3f\", $duration_ms/1000}")
     echo "------------------------------" >> "$logfile"
     echo "Script ended at $(date) exit_code=$exit_code duration=${duration_s}s" >> "$logfile"
+    echo "Check debugging guide: $DEBUGGING_GUIDE" >> "$logfile"
     echo "==============================" >> "$logfile"
     echo " " >> "$logfile"
     # Fix ownership one final time (in case any logs were created as root)
