@@ -3,3 +3,4 @@ logs/
 .vscode/
 diagnostic_reports/
 *.tmp
+*.iso
