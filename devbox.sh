@@ -19,7 +19,15 @@ set -euo pipefail
 # 12 - No internet connection for diagnostics
 # 13 - Essential tool missing in diagnostics
 # 14 - apt package manager is not healthy
+# 15 - Docker image build failure
+# 16 - Docker container run failure
+# 17 - Docker cleanup failure
+RUN_CONTAINER=false
+BUILD_IMAGE=false
+CLEAN_DOCKER=false
 
+readonly USER="$(whoami)"
+readonly SUDO_USER="${SUDO_USER:-$USER}"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly TIMESTAMP=$(date '+%Y-%m-%d')
 readonly START_TIME=$(date +%s%3N)
@@ -79,6 +87,9 @@ Exit Codes:
   12 - No internet connection for diagnostics
   13 - Essential tool missing in diagnostics
   14 - apt package manager is not healthy
+  15 - Docker image build failure
+  16 - Docker container run failure
+  17 - Docker cleanup failure
 
 EOF
     exit 0
@@ -96,7 +107,7 @@ fi
 # ============================================================================
 
 # Ensure library scripts are executable
-for lib in packages.sh docker.sh diagnostics.sh reporting.sh; do
+for lib in packages.sh docker.sh diagnostics.sh reporting.sh dockerbuild.sh; do
     lib_path="$SCRIPT_DIR/lib/$lib"
     log DEBUG "Checking library: $lib_path"
     if [[ ! -f "$lib_path" ]]; then
@@ -109,7 +120,7 @@ for lib in packages.sh docker.sh diagnostics.sh reporting.sh; do
 done
 
 # Load remaining libraries
-for lib in packages.sh docker.sh reporting.sh diagnostics.sh; do
+for lib in packages.sh docker.sh reporting.sh diagnostics.sh dockerbuild.sh; do
     if source "$SCRIPT_DIR/lib/$lib" &>> "${logfile:-/dev/null}"; then
         log INFO "\"lib/$lib\" loaded successfully"
     else
@@ -118,6 +129,7 @@ for lib in packages.sh docker.sh reporting.sh diagnostics.sh; do
     fi
 done
 #archive_old_reports
+init_reporting
 
 # ============================================================================
 # FUNCTIONS
@@ -125,7 +137,7 @@ done
 
 run_install() {
     log INFO "Starting installation process"
-    # apt_update  # Uncomment for production
+    apt_update  # Uncomment for production
     
     if ! main_essentials; then
         log ERROR "Failed to install essential packages"
@@ -196,7 +208,7 @@ OPEN_CONFIG=false
 # Parse all arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        install|doctor)
+        install|doctor|docker)
             if [[ -n "$COMMAND" ]]; then
                 echo "Error: Multiple commands specified" >&2
                 exit 3
@@ -209,6 +221,16 @@ while [[ $# -gt 0 ]]; do
         --config)
             OPEN_CONFIG=true
         ;;
+        --build)
+            BUILD_IMAGE=true
+        ;;
+        --run)
+            RUN_CONTAINER=true
+        ;;
+        --clean)
+            CLEAN_DOCKER=true
+        ;;
+
         *)
             invalid_argument "$1"
         ;;
@@ -249,6 +271,17 @@ case "$COMMAND" in
         run_doctor
         report_summary >> "$reportfile"
         report_summary >> "$logfile"
+    ;;
+    docker)
+        if [[ "$BUILD_IMAGE" == true ]]; then
+            build_docker_image
+        fi
+        if [[ "$RUN_CONTAINER" == true ]]; then
+            docker_run_container
+        fi
+        if [[ "$CLEAN_DOCKER" == true ]]; then
+            docker_cleanup
+        fi
     ;;
 esac
 

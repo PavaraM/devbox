@@ -35,7 +35,7 @@ check_and_install_apt() {
     echo "$name is not installed, installing now..."
     log INFO "$name not installed"
     log DEBUG "Running apt install $pkg_name"
-    if sudo apt install "$pkg_name" -y >> "$aptlog" 2>&1; then
+    if apt install "$pkg_name" -y >> "$aptlog" 2>&1; then
         # Fix ownership of the apt log file
         if [[ -n "$SUDO_USER" ]]; then
             chown "$SUDO_USER:$SUDO_USER" "$aptlog"

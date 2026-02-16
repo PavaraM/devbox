@@ -1,7 +1,6 @@
 # lib/reporting.sh
 # Reporting library for devbox diagnostics
 
-reportfile=""
 
 archive_old_reports() {
     log DEBUG "Archiving old diagnostic reports"

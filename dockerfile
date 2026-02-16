@@ -1,10 +1,15 @@
 FROM ubuntu:24.04
 
+USER root
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /opt/devbox
 
-RUN sudo ./devbox.sh install
+SHELL [ "/bin/bash", "-c"]
 
-CMD ["/bin/bash"]
+COPY . /opt/devbox/
 
+RUN chmod +x devbox.sh
+
+RUN ./devbox.sh install

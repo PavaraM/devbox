@@ -1,0 +1,10 @@
+logs/
+*.log
+.vscode/
+diagnostic_reports/
+*.tmp
+*.bak
+*.swp
+*.swo
+*.DS_Store
+*.iso
