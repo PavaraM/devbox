@@ -1,3 +1,6 @@
+# Packer configuration for building a DevBox VM using QEMU
+#!/usr/bin/env packer
+
 packer {
   required_version = ">= 1.9.0"
   required_plugins {
