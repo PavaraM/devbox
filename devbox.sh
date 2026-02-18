@@ -60,11 +60,17 @@ Usage: $0 COMMAND [OPTIONS]
 Commands:
   install       Set up development environment with essential packages
   doctor        Run diagnostic checks on the environment
+  docker        
   --config      Open custom package config in editor
   --help        Display this help message
 
 Options:
   --plus-docker Install Docker and Docker Compose
+
+  docker [OPTION]
+  --build
+  --run
+  --clean
 
 Examples:
   $0 install
