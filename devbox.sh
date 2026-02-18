@@ -28,7 +28,7 @@ if ! source "$SCRIPT_DIR/lib/logging.sh"; then
     echo "Error: Failed to load logging library" >&2
     exit 4
 fi
-trap log_footer EXIT
+logger_init
 
 
 # ============================================================================

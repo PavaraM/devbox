@@ -104,7 +104,7 @@ networkingtools() {
 
 custom_packages() {
     log DEBUG "Checking for custom packages to install from \"$SCRIPT_DIR/pkg.conf\"..."
-    source "$SCRIPT_DIR/pkg.conf"
+    source "$SCRIPT_DIR/conf/pkg.conf"
     local failed_packages=()
     if [ ${#CUSTOM_PACKAGES[@]} -eq 0 ]; then
         log INFO "No custom packages to install"
