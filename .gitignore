@@ -4,3 +4,15 @@ logs/
 diagnostic_reports/
 *.tmp
 *.iso
+*.sublime-workspace
+*.sublime-project
+*.swp
+*.bak
+*.backup
+*.tmp
+*.log
+*.cache
+*.pid
+*.seed
+*.pid.lock
+*.log.*
