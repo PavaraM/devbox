@@ -143,7 +143,7 @@ init_reporting
 
 run_install() {
     log INFO "Starting installation process"
-    apt_update  # Uncomment for production
+    #apt_update  # Uncomment for production
     
     if ! main_essentials; then
         log ERROR "Failed to install essential packages"
