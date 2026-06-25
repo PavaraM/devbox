@@ -57,10 +57,13 @@ Commands:
 
 Options:
   --plus-docker Install Docker and Docker Compose
+  --dry-run     Show what would be done without making changes
 
 Examples:
   $0 install
   $0 install --plus-docker
+  $0 install --dry-run
+  $0 install --plus-docker --dry-run
   $0 doctor
 
 Exit Codes:
@@ -117,15 +120,13 @@ for lib in packages.sh docker.sh reporting.sh diagnostics.sh; do
         exit 4
     fi
 done
-#archive_old_reports
-
 # ============================================================================
 # FUNCTIONS
 # ============================================================================
 
 run_install() {
     log INFO "Starting installation process"
-    # apt_update  # Uncomment for production
+    apt_update
     
     if ! main_essentials; then
         log ERROR "Failed to install essential packages"
@@ -192,6 +193,7 @@ invalid_argument() {
 COMMAND=""
 INSTALL_DOCKER=false
 OPEN_CONFIG=false
+DRY_RUN=false
 
 # Parse all arguments
 while [[ $# -gt 0 ]]; do
@@ -206,6 +208,9 @@ while [[ $# -gt 0 ]]; do
         --plus-docker)
             INSTALL_DOCKER=true
         ;;
+        --dry-run)
+            DRY_RUN=true
+        ;;
         --config)
             OPEN_CONFIG=true
         ;;
@@ -218,7 +223,7 @@ done
 
 # Open config and exit when no command is requested
 if [[ "$OPEN_CONFIG" == true && -z "$COMMAND" ]]; then
-    nano "$SCRIPT_DIR/pkg.conf"
+    nano "$SCRIPT_DIR/conf/pkg.conf"
     log INFO "Opened pkg.conf for editing"
     exit 0
 fi
@@ -236,6 +241,10 @@ fi
 
 echo "DevBox v1.0"
 echo "===================="
+if [[ "$DRY_RUN" == true ]]; then
+    echo "*** DRY RUN MODE - No changes will be made ***"
+    echo ""
+fi
 log INFO "Script started with command: $COMMAND"
 
 case "$COMMAND" in

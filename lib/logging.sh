@@ -8,22 +8,37 @@
 # ====================================================
 # PULL CONFIG
 # ----------------------------------------------------
+if [[ -z "${SCRIPT_DIR:-}" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
 source "$SCRIPT_DIR/conf/logger.conf"
 # ====================================================
 
-# ====================================================
-# Set ownership of logs to the invoking user if running with sudo
-if [[ -n "${SUDO_USER:-}" ]]; then
-    chown -R "$SUDO_USER:$SUDO_USER" "$SCRIPT_DIR/logs/"
+# ----------------------------------------------------
+# Convert \033 escape sequences in color vars to actual ESC bytes
+# so printf '%s' works safely (no unwanted %b interpretation)
+for _logger_var in COLOR_INFO COLOR_WARN COLOR_ERROR COLOR_DEBUG COLOR_RESET; do
+    eval "$_logger_var=\"\$(printf '%b' \"\${$_logger_var:-}\")\""
+done
+unset _logger_var
+# =====================================================
+
+# ----------------------------------------------------
+# Validate configuration
+if [[ ! "$MIN_LOG_LEVEL" =~ ^(DEBUG|INFO|WARN|ERROR)$ ]]; then
+    echo "logger.sh: invalid MIN_LOG_LEVEL='$MIN_LOG_LEVEL' — must be DEBUG, INFO, WARN, or ERROR" >&2
+    MIN_LOG_LEVEL="INFO"
 fi
 # =====================================================
 
 # ====================================================
 # ARCHIVE LOGS
 # ----------------------------------------------------
-log_archive() {   
-if [[ "$AUTO_ARCHIVE" == "true" ]]; then
+log_archive() {
+    if [[ "$AUTO_ARCHIVE" == "true" ]]; then
+        mkdir -p "$ARCHIVE_DIR"
         find "$LOG_DIR" -type f -name "${softname}_*.log" \
+            -not -path "$ARCHIVE_DIR/*" \
             -mtime +"$LOG_RETENTION_DAYS" \
             -exec mv {} "$ARCHIVE_DIR/" \;
     fi
@@ -34,8 +49,9 @@ if [[ "$AUTO_ARCHIVE" == "true" ]]; then
 # INITIALIZE LOG FILE
 # ----------------------------------------------------
 logger_init() {
-    #TIMESTAMP=$(date '+%Y-%m-%d')
-    logfile="$LOG_DIR/${softname}_${environment}_${TIMESTAMP}.log"
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d')
+    logfile="$LOG_DIR/${softname}_${environment}_${timestamp}.log"
 
     mkdir -p "$LOG_DIR"
     mkdir -p "$ARCHIVE_DIR"
@@ -47,23 +63,21 @@ logger_init() {
     if [[ "$SHOW_FILE" == "true" ]]; then
         {
             echo ""
-            echo "Script started at $(date)"
+            echo "Script started at $(date +"$LOG_DATE_FORMAT")"
             echo "Environment: $environment"
-            echo "User: $USER (SUDO_USER: ${SUDO_USER:-none})"
+            echo "User: ${USER:-unknown} (SUDO_USER: ${SUDO_USER:-none})"
             echo "------------------------------"
             echo ""
         } >> "$logfile"
     fi
+
+    # SET OWNERSHIP OF NEW LOG FILE TO INVOKING USER IF RUNNING WITH SUDO
     if [[ -n "${SUDO_USER:-}" ]]; then
         chown "$SUDO_USER:$SUDO_USER" "$logfile"
     fi
+
     trap log_footer EXIT
 }
-# ====================================================
-
-# ====================================================
-# SET OWNERSHIP OF NEW LOG FILE TO INVOKING USER IF RUNNING WITH SUDO
-
 # ====================================================
 
 # ====================================================
@@ -115,15 +129,15 @@ log() {
     # Console output
     if [[ "$SHOW_CONSOLE" == "true" ]]; then
         if [[ "$ENABLE_COLORS" == "true" ]]; then
-            printf "%b\n" "$console_line"
+            printf '%s\n' "$console_line"
         else
-            echo "$file_line"
+            printf '%s\n' "$file_line"
         fi
     fi
 
     # File output
     if [[ "$SHOW_FILE" == "true" ]]; then
-        echo "$file_line" >> "$logfile"
+        printf '%s\n' "$file_line" >> "$logfile"
     fi
 }
 # ====================================================
@@ -134,15 +148,21 @@ log() {
 # ----------------------------------------------------
 log_footer() {
     local exit_code=$?
-    local END_TIME=$(date +%s%3N)
-    local duration_ms=$((END_TIME - START_TIME))
-    local duration_s=$(awk "BEGIN {printf \"%.3f\", $duration_ms/1000}")
+    if [[ -n "${START_TIME:-}" ]]; then
+        local end_time
+        end_time=$(date +%s%3N)
+        local duration_ms=$((end_time - START_TIME))
+        local duration_s
+        duration_s=$(awk "BEGIN {printf \"%.3f\", $duration_ms/1000}")
+    else
+        local duration_s="N/A"
+    fi
 
     if [[ "$SHOW_FILE" == "true" ]]; then
         {
             echo ""
             echo "------------------------------"
-            echo "Script ended at $(date)"
+            echo "Script ended at $(date +"$LOG_DATE_FORMAT")"
             echo "Exit code: $exit_code"
             echo "Duration: ${duration_s}s"
             echo "=============================="
@@ -156,3 +176,26 @@ log_footer() {
     fi
 }
 # ====================================================
+
+
+# MIT License
+
+# Copyright (c) 2026 Pavara Mirihagalla
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.

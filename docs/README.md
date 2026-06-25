@@ -1,26 +1,27 @@
 # DevBox
 
-**A lightweight, modular development environment setup tool for Ubuntu systems.**
+**Infrastructure-as-Code for development environments — automated provisioning, container orchestration, and observability for Ubuntu/Debian systems.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0-blue.svg)](https://github.com/PavaraM/devbox)
+[![Version](https://img.shields.io/badge/version-1.1-blue.svg)](https://github.com/PavaraM/devbox)
 [![Shell](https://img.shields.io/badge/shell-bash-green.svg)](https://www.gnu.org/software/bash/)
+[![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen.svg)](https://github.com/PavaraM/devbox)
 
-DevBox automates the tedious setup of development environments by installing essential tools, configuring Docker, and providing diagnostic capabilities—all through a clean, modular bash script architecture.
+DevBox is an **infrastructure automation tool** that provisions consistent, production-ready development environments on Ubuntu/Debian. It handles package management, Docker container orchestration, system diagnostics, and observability logging — all through a modular IaC (Infrastructure as Code) architecture with idempotent execution, granular error handling, and a dry-run mode for safe change previews.
 
 ---
 
 ## Features
 
-✨ **Modular Architecture** - Clean separation of concerns with library-based design  
-🔧 **Essential Dev Tools** - Git, curl, wget, htop, tmux, neovim, and more  
-🐳 **Docker Integration** - Optional Docker and Docker Compose installation  
-📊 **Comprehensive Logging** - Detailed logs with timestamps and duration tracking  
-🩺 **System Diagnostics** - Built-in health checks and environment verification  
-🛡️ **Robust Error Handling** - Granular exit codes for easy debugging  
-⚡ **Idempotent Operations** - Safe to run multiple times  
-📝 **User-Accessible Logs** - Logs owned by your user, not root  
-🎯 **Custom Package Support** - Easy configuration for additional packages via `pkg.conf`
+🧩 **Infrastructure as Code** — Declarative, modular, and version-controlled environment provisioning  
+⚡ **Idempotent Execution** — Safe to run repeatedly; already-configured state is detected and skipped  
+🐳 **Container Platform** — Docker Engine + Compose plugin with automatic service setup and user access  
+🩺 **Observability** — Comprehensive diagnostic engine with health checks, reporting, and monitoring  
+📊 **Structured Logging** — Multi-level logs (DEBUG/INFO/WARN/ERROR) with auto-archival and duration tracking  
+🔒 **Security-First** — Fail-fast validation, least-privilege ownership, HTTPS-only downloads  
+👁️ **Change Preview** — `--dry-run` mode to review modifications before applying them  
+🎯 **Extensible** — Custom packages via `conf/pkg.conf`, modular library design for easy extension  
+📋 **CI/CD Ready** — Scriptable, automated, with detailed exit codes for pipeline integration
 
 ---
 
@@ -36,6 +37,9 @@ chmod +x devbox.sh
 
 # Install essential packages
 sudo ./devbox.sh install
+
+# Preview installation (no changes made)
+sudo ./devbox.sh install --dry-run
 
 # Install with Docker support
 sudo ./devbox.sh install --plus-docker
@@ -59,6 +63,9 @@ sudo ./devbox.sh doctor
 ```
 devbox/
 ├── devbox.sh              # Main script
+├── conf/                  # Configuration files
+│   ├── pkg.conf           # Custom package configuration
+│   └── logger.conf        # Logger configuration
 ├── lib/                   # Library modules
 │   ├── diagnostics.sh     # System diagnostics & health checks
 │   ├── docker.sh          # Docker installation & setup
@@ -80,7 +87,6 @@ devbox/
 │   ├── API.md             # API documentation for developers
 │   ├── DEBUGGING.md       # Debugging guide
 │   └── QUICKREF.md        # Quick reference guide
-├── pkg.conf               # Custom package configuration
 ├── LICENSE                # MIT License
 └── VERSION                # Version information
 ```
@@ -128,6 +134,23 @@ sudo ./devbox.sh install --plus-docker
 - Architecture detection (x86_64, aarch64, armv7)
 
 > **Note:** You'll need to log out and back in for Docker group permissions to take effect.
+
+#### `install --dry-run`
+Preview what would be installed without making any changes to the system.
+
+```bash
+sudo ./devbox.sh install --dry-run
+sudo ./devbox.sh install --plus-docker --dry-run
+```
+
+**Behavior:**
+- Checks which packages are already installed
+- Reports what would be installed (skips already-present packages)
+- For Docker: prints the steps that would be taken
+- No files are modified, no packages are installed
+- Full log output is still written to the log file
+
+Ideal for reviewing changes before applying them, or for CI pipelines that need to verify setup steps without executing them.
 
 #### `doctor`
 Run comprehensive diagnostic checks on your environment.
@@ -281,9 +304,9 @@ Script ended at Sat Feb 14 01:45:40 +0530 2026 exit_code=0 duration=2.192s
 
 ### Custom Package Installation
 
-DevBox supports custom package installation via the `pkg.conf` file:
+DevBox supports custom package installation via the `conf/pkg.conf` file:
 
-**Edit `pkg.conf`:**
+**Edit `conf/pkg.conf`:**
 ```bash
 CUSTOM_PACKAGES=(
     "python3-pip"
@@ -464,7 +487,7 @@ cat diagnostic_reports/report-*.log
 
 ```bash
 # Add custom packages first
-nano pkg.conf
+nano conf/pkg.conf
 # Add: python3-pip, nodejs, npm, etc.
 
 # Full setup with Docker
@@ -474,15 +497,69 @@ sudo ./devbox.sh install --plus-docker
 sudo ./devbox.sh doctor
 ```
 
+## DevOps & CI/CD Integration
+
+DevBox is designed for automation workflows and integrates naturally into DevOps pipelines:
+
+### CI/CD Pipeline Usage
+
+```yaml
+# GitHub Actions example: verify environment on self-hosted runner
+jobs:
+  setup:
+    runs-on: [self-hosted, linux, ubuntu]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preview changes
+        run: sudo ./devbox.sh install --dry-run
+      - name: Run diagnostics
+        run: sudo ./devbox.sh doctor
+      - name: Provision
+        run: sudo ./devbox.sh install --plus-docker
+```
+
+### Infrastructure as Code
+
+- **Single-source-of-truth** — one script defines the entire dev environment
+- **Git-versioned** — environment changes go through code review
+- **Reproducible** — identical setup across laptops, servers, and CI runners
+- **Auditable** — every run produces timestamped logs and diagnostic reports
+
+### Observability
+
+| Capability | What it provides |
+|---|---|
+| Diagnostic reports | Snapshot of system health for trend analysis |
+| Structured logs | Multi-level logging for log aggregator integration |
+| Exit codes | Machine-parseable outcomes for automated alerting |
+| Duration tracking | Performance baselining for infrastructure changes |
+
+### Automation Examples
+
+```bash
+# Automated nightly health check
+0 2 * * * /opt/devbox/devbox.sh doctor >> /var/log/devbox-cron.log 2>&1
+
+# Pre-deployment validation
+./devbox.sh doctor || { echo "Unhealthy — aborting deploy"; exit 1; }
+
+# Bulk new-hire provisioning
+for user in "${new_joinees[@]}"; do
+    sudo ./devbox.sh install --plus-docker
+    sudo usermod -aG docker "$user"
+done
+```
+
 ---
 
 ## Best Practices
 
 ### Installation
 - Always run `doctor` after `install` to verify setup
+- Use `--dry-run` first to preview what will be installed
 - Review logs if any package fails to install
 - Run `install` again if network issues interrupted first attempt
-- Use `pkg.conf` for custom packages instead of modifying core code
+- Use `conf/pkg.conf` for custom packages instead of modifying core code
 
 ### Logging
 - Check the main log for overview: `logs/devbox_$(date +%Y-%m-%d).log`
@@ -571,6 +648,7 @@ Before submitting a PR:
 - [ ] Test on fresh Ubuntu 24.04 LTS
 - [ ] Test `install` command
 - [ ] Test `install --plus-docker` command
+- [ ] Test `install --dry-run` and `install --plus-docker --dry-run`
 - [ ] Test `doctor` command
 - [ ] Test with and without internet
 - [ ] Verify log file creation and ownership
@@ -649,6 +727,20 @@ SOFTWARE.
 
 ## Changelog
 
+### v1.1.0 (2026-06-25)
+- **New `--dry-run` mode** — preview changes before applying
+- **`apt update` now runs before install** — no more stale package lists
+- **Logger hardening** — standalone `SCRIPT_DIR` fallback, `MIN_LOG_LEVEL` validation, START_TIME guard, escape sequence sanitization
+- **Fixed** wrong `pkg.conf` path in `doctor` and `--config` commands
+- **Fixed** package name mismatches (`git`/`git-all`, `vim`/`neovim`)
+- **Fixed** log archive same-file move error (`-not -path "$ARCHIVE_DIR/*"`)
+- **Fixed** first-run log directory crash
+- **Fixed** Docker Compose partial download (atomic temp file)
+- **Fixed** `$USER` unbound variable under `set -u` (`${USER:-unknown}`)
+- **Removed** redundant `sudo` calls (script already runs as root)
+- **Improved** internet connectivity check (curl instead of ping)
+- **Improved** output safety — `printf '%s\n'` replaces `echo`/`printf '%b\n'`
+
 ### v1.0.0 (2026-02-14)
 - Initial release
 - Essential package installation
@@ -658,7 +750,7 @@ SOFTWARE.
 - Modular library architecture
 - User-accessible logs
 - Automatic log archival
-- Custom package support via `pkg.conf`
+- Custom package support via `conf/pkg.conf`
 
 ---
 

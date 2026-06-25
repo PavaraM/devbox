@@ -10,7 +10,7 @@ osinfo() {
     kernel=$(uname -r)
     architecture=$(uname -m)
     userpermissions=$(id -u)
-    internet=$(ping -c 1 google.com &>/dev/null && echo "online" || echo "offline")
+    internet=$(curl -fs -o /dev/null -w "%{http_code}" http://google.com &>/dev/null && echo "online" || echo "offline")
     
     report INFO "Distro: $distro"
     report INFO "Kernel: $kernel"
@@ -76,7 +76,7 @@ toolchain_verification() {
 
 custom_packages_check() {
     report DEBUG "Checking custom packages..."
-    source "$SCRIPT_DIR/pkg.conf"
+    source "$SCRIPT_DIR/conf/pkg.conf"
     if [ ${#CUSTOM_PACKAGES[@]} -eq 0 ]; then
         report INFO "No custom packages defined in pkg.conf"
         passed=$((passed + 1))

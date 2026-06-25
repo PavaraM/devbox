@@ -8,6 +8,13 @@ install_docker() {
         log INFO "Docker already installed on this system."
         return 0
     fi
+    
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        echo "[DRY RUN] Would install Docker Engine from get.docker.com"
+        log INFO "[DRY RUN] Would install Docker Engine"
+        return 0
+    fi
+    
     echo "Docker is not installed, installing now..."
     log INFO "Docker not installed"
     log DEBUG "Running Docker installation commands"
@@ -46,6 +53,12 @@ docker_compose_setup() {
     echo "Docker Compose is not installed, installing plugin..."
     log INFO "Installing Docker Compose plugin"
     
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        echo "[DRY RUN] Would install Docker Compose plugin"
+        log INFO "[DRY RUN] Would install Docker Compose plugin"
+        return 0
+    fi
+    
     # Install Docker Compose plugin (modern approach)
     local compose_version="v2.24.5"  # Pinned stable version
     local arch=$(uname -m)
@@ -70,12 +83,22 @@ docker_compose_setup() {
     
     log DEBUG "Downloading Docker Compose from: $download_url"
     
-    if curl -fsSL "$download_url" -o "$plugin_dir/docker-compose"; then
-        chmod +x "$plugin_dir/docker-compose"
-        echo "Docker Compose plugin installed successfully."
-        log INFO "Docker Compose plugin installation successful"
-        return 0
+    local tmp_file=$(mktemp)
+    if curl -fsSL "$download_url" -o "$tmp_file"; then
+        if [[ -s "$tmp_file" ]]; then
+            mv "$tmp_file" "$plugin_dir/docker-compose"
+            chmod +x "$plugin_dir/docker-compose"
+            echo "Docker Compose plugin installed successfully."
+            log INFO "Docker Compose plugin installation successful"
+            return 0
+        else
+            rm -f "$tmp_file"
+            echo "Docker Compose plugin download produced empty file"
+            log ERROR "Docker Compose plugin download produced empty file"
+            return 9
+        fi
     else
+        rm -f "$tmp_file"
         echo "Docker Compose plugin installation failed"
         log ERROR "Docker Compose plugin installation failed"
         return 9
@@ -88,6 +111,12 @@ docker_setup() {
     # Install Docker
     if ! install_docker; then
         return $?
+    fi
+
+    if [[ "${DRY_RUN:-false}" == "true" ]]; then
+        echo "[DRY RUN] Would start and enable Docker service, add user to docker group"
+        log INFO "[DRY RUN] Would configure Docker service"
+        return 0
     fi
     
     # Start Docker daemon
