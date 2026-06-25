@@ -19,6 +19,9 @@ set -euo pipefail
 # 12 - No internet connection for diagnostics
 # 13 - Essential tool missing in diagnostics
 # 14 - apt package manager is not healthy
+# 15 - SSH hardening failure
+# 16 - Firewall configuration failure
+# 17 - Deploy user setup failure
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly TIMESTAMP=$(date '+%Y-%m-%d')
@@ -45,25 +48,31 @@ fi
 # Allow --help without root
 if [[ "$1" == "--help" ]]; then
     cat << EOF
-DevBox v1.0 - Development Environment Setup
+DevBox v1.2 - Development Environment Setup
 
 Usage: $0 COMMAND [OPTIONS]
 
 Commands:
   install       Set up development environment with essential packages
   doctor        Run diagnostic checks on the environment
+  --all, -a     Run full setup: install + Docker + security hardening
   --config      Open custom package config in editor
   --help        Display this help message
 
 Options:
   --plus-docker Install Docker and Docker Compose
+  --harden      Harden SSH configuration and configure UFW firewall
+  --setup-user  Create a deploy user with SSH access and groups (requires username)
+  --all, -a     Shorthand for --plus-docker --harden (can combine with --setup-user)
   --dry-run     Show what would be done without making changes
 
 Examples:
   $0 install
   $0 install --plus-docker
+  $0 install --harden
+  $0 install --plus-docker --harden --setup-user deploy
+  $0 --all --setup-user deploy
   $0 install --dry-run
-  $0 install --plus-docker --dry-run
   $0 doctor
 
 Exit Codes:
@@ -82,6 +91,9 @@ Exit Codes:
   12 - No internet connection for diagnostics
   13 - Essential tool missing in diagnostics
   14 - apt package manager is not healthy
+  15 - SSH hardening failure
+  16 - Firewall configuration failure
+  17 - Deploy user setup failure
 
 EOF
     exit 0
@@ -99,7 +111,7 @@ fi
 # ============================================================================
 
 # Ensure library scripts are executable
-for lib in packages.sh docker.sh diagnostics.sh reporting.sh; do
+for lib in packages.sh docker.sh diagnostics.sh reporting.sh security.sh; do
     lib_path="$SCRIPT_DIR/lib/$lib"
     log DEBUG "Checking library: $lib_path"
     if [[ ! -f "$lib_path" ]]; then
@@ -112,7 +124,7 @@ for lib in packages.sh docker.sh diagnostics.sh reporting.sh; do
 done
 
 # Load remaining libraries
-for lib in packages.sh docker.sh reporting.sh diagnostics.sh; do
+for lib in packages.sh docker.sh reporting.sh diagnostics.sh security.sh; do
     if source "$SCRIPT_DIR/lib/$lib" &>> "${logfile:-/dev/null}"; then
         log INFO "\"lib/$lib\" loaded successfully"
     else
@@ -154,6 +166,9 @@ run_doctor() {
         pkg_mgr_health
         toolchain_verification
         custom_packages_check
+        ssh_harden_check
+        firewall_check
+        deploy_user_check
     )
     echo "Running diagnostics..."
     log DEBUG "Running diagnostic checks..."
@@ -194,6 +209,8 @@ COMMAND=""
 INSTALL_DOCKER=false
 OPEN_CONFIG=false
 DRY_RUN=false
+HARDEN=false
+SETUP_USER=""
 
 # Parse all arguments
 while [[ $# -gt 0 ]]; do
@@ -205,8 +222,29 @@ while [[ $# -gt 0 ]]; do
             fi
             COMMAND="$1"
         ;;
+        --all|-a)
+            if [[ -z "$COMMAND" ]]; then
+                COMMAND="install"
+            elif [[ "$COMMAND" != "install" ]]; then
+                echo "Error: --all can only be used with install" >&2
+                exit 3
+            fi
+            INSTALL_DOCKER=true
+            HARDEN=true
+        ;;
         --plus-docker)
             INSTALL_DOCKER=true
+        ;;
+        --harden)
+            HARDEN=true
+        ;;
+        --setup-user)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --setup-user requires a username" >&2
+                exit 3
+            fi
+            SETUP_USER="$2"
+            shift
         ;;
         --dry-run)
             DRY_RUN=true
@@ -235,11 +273,27 @@ if [[ -z "$COMMAND" ]]; then
     exit 2
 fi
 
+# Validate install-specific flags
+if [[ "$COMMAND" != "install" ]]; then
+    if [[ "$INSTALL_DOCKER" == true ]]; then
+        echo "Error: --plus-docker requires the install command" >&2
+        exit 3
+    fi
+    if [[ "$HARDEN" == true ]]; then
+        echo "Error: --harden requires the install command" >&2
+        exit 3
+    fi
+    if [[ -n "$SETUP_USER" ]]; then
+        echo "Error: --setup-user requires the install command" >&2
+        exit 3
+    fi
+fi
+
 # ============================================================================
 # MAIN EXECUTION
 # ============================================================================
 
-echo "DevBox v1.0"
+echo "DevBox v1.2"
 echo "===================="
 if [[ "$DRY_RUN" == true ]]; then
     echo "*** DRY RUN MODE - No changes will be made ***"
@@ -252,6 +306,22 @@ case "$COMMAND" in
         run_install
         if [[ "$INSTALL_DOCKER" == true ]]; then
             setup_docker
+        fi
+        if [[ "$HARDEN" == true ]]; then
+            if ! ssh_harden; then
+                log ERROR "SSH hardening failed"
+                exit 15
+            fi
+            if ! configure_firewall; then
+                log ERROR "Firewall configuration failed"
+                exit 16
+            fi
+        fi
+        if [[ -n "$SETUP_USER" ]]; then
+            if ! setup_deploy_user "$SETUP_USER"; then
+                log ERROR "Deploy user setup failed"
+                exit 17
+            fi
         fi
     ;;
     doctor)

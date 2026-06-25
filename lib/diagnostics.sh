@@ -101,6 +101,44 @@ custom_packages_check() {
     fi
 }
 
+ssh_harden_check() {
+    report DEBUG "Checking SSH hardening..."
+    if [[ ! -f /etc/ssh/sshd_config ]]; then
+        report WARN "SSH server is not installed"
+    elif grep -q "^PermitRootLogin no" /etc/ssh/sshd_config; then
+        report INFO "SSH hardening is applied"
+    else
+        report WARN "SSH hardening is not applied"
+    fi
+    passed=$((passed + 1))
+    return 0
+}
+
+firewall_check() {
+    report DEBUG "Checking firewall status..."
+    if ! command -v ufw &> /dev/null; then
+        report WARN "UFW is not installed"
+    elif ufw status | grep -q "Status: active"; then
+        report INFO "UFW firewall is active"
+    else
+        report WARN "UFW firewall is not active"
+    fi
+    passed=$((passed + 1))
+    return 0
+}
+
+deploy_user_check() {
+    report DEBUG "Checking deploy user..."
+    source "$SCRIPT_DIR/conf/security.conf"
+    if id "$DEPLOY_USERNAME" &>/dev/null; then
+        report INFO "Deploy user $DEPLOY_USERNAME exists"
+    else
+        report INFO "No deploy user configured"
+    fi
+    passed=$((passed + 1))
+    return 0
+}
+
 report_summary() {
     local total_checks="${#GENERAL_HEALTH_CHECKS[@]}"
 

@@ -3,7 +3,7 @@
 **Infrastructure-as-Code for development environments — automated provisioning, container orchestration, and observability for Ubuntu/Debian systems.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.1-blue.svg)](https://github.com/PavaraM/devbox)
+[![Version](https://img.shields.io/badge/version-1.2-blue.svg)](https://github.com/PavaraM/devbox)
 [![Shell](https://img.shields.io/badge/shell-bash-green.svg)](https://www.gnu.org/software/bash/)
 [![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen.svg)](https://github.com/PavaraM/devbox)
 
@@ -18,7 +18,9 @@ DevBox is an **infrastructure automation tool** that provisions consistent, prod
 🐳 **Container Platform** — Docker Engine + Compose plugin with automatic service setup and user access  
 🩺 **Observability** — Comprehensive diagnostic engine with health checks, reporting, and monitoring  
 📊 **Structured Logging** — Multi-level logs (DEBUG/INFO/WARN/ERROR) with auto-archival and duration tracking  
-🔒 **Security-First** — Fail-fast validation, least-privilege ownership, HTTPS-only downloads  
+🔐 **SSH Hardening** — Automated secure SSH configuration with strong ciphers, key-only auth, and safe defaults  
+🛡️ **Firewall Management** — UFW firewall with configurable allow-lists and rate-limited SSH access  
+👤 **Deploy User** — Automated deploy user creation with SSH keys, group membership, and sudo configuration  
 👁️ **Change Preview** — `--dry-run` mode to review modifications before applying them  
 🎯 **Extensible** — Custom packages via `conf/pkg.conf`, modular library design for easy extension  
 📋 **CI/CD Ready** — Scriptable, automated, with detailed exit codes for pipeline integration
@@ -65,13 +67,15 @@ devbox/
 ├── devbox.sh              # Main script
 ├── conf/                  # Configuration files
 │   ├── pkg.conf           # Custom package configuration
-│   └── logger.conf        # Logger configuration
+│   ├── logger.conf        # Logger configuration
+│   └── security.conf      # SSH, firewall, and deploy user settings
 ├── lib/                   # Library modules
 │   ├── diagnostics.sh     # System diagnostics & health checks
 │   ├── docker.sh          # Docker installation & setup
 │   ├── logging.sh         # Logging utilities
 │   ├── packages.sh        # Package management
-│   └── reporting.sh       # Diagnostic report generation
+│   ├── reporting.sh       # Diagnostic report generation
+│   └── security.sh        # SSH hardening, firewall, deploy user
 ├── logs/                  # Execution logs (auto-created)
 │   ├── devbox_*.log       # Main script logs
 │   ├── apt/               # Per-package installation logs
@@ -135,18 +139,55 @@ sudo ./devbox.sh install --plus-docker
 
 > **Note:** You'll need to log out and back in for Docker group permissions to take effect.
 
+#### `install --harden`
+Harden the system's security posture.
+
+```bash
+sudo ./devbox.sh install --harden
+sudo ./devbox.sh install --plus-docker --harden
+```
+
+**Performs:**
+- **SSH Hardening**: Disables root login, enforces key-based auth, disables X11 forwarding, sets strong ciphers/MACs/KexAlgorithms, configures idle timeouts, rate-limits auth attempts — original config backed up to `/etc/ssh/sshd_config.devbox.bak`
+- **UFW Firewall**: Default deny incoming, default allow outgoing, rate-limit SSH (port 22), open additional ports (80, 443 by default — configurable in `conf/security.conf`)
+
+#### `install --setup-user <username>`
+Create a deploy user with SSH access, group memberships, and sudo privileges.
+
+```bash
+sudo ./devbox.sh install --setup-user deploy
+sudo ./devbox.sh install --all --setup-user deploy
+```
+
+**Creates:**
+- System user with home directory and `.ssh/authorized_keys`
+- SSH key pair (auto-generated if no public key provided via `DEPLOY_SSH_PUBLIC_KEY` env var or `conf/deploy_key.pub`)
+- Group memberships (docker, sudo — configurable in `conf/security.conf`)
+- Passwordless sudo configuration
+
+#### `--all` / `-a`
+Run the full DevBox setup in one command: install + Docker + security hardening.
+
+```bash
+sudo ./devbox.sh --all
+sudo ./devbox.sh -a --setup-user deploy
+```
+
+This is a shorthand for `install --plus-docker --harden`. Can be combined with `--setup-user` for a complete environment provisioning.
+
 #### `install --dry-run`
 Preview what would be installed without making any changes to the system.
 
 ```bash
 sudo ./devbox.sh install --dry-run
 sudo ./devbox.sh install --plus-docker --dry-run
+sudo ./devbox.sh --all --dry-run
 ```
 
 **Behavior:**
 - Checks which packages are already installed
 - Reports what would be installed (skips already-present packages)
-- For Docker: prints the steps that would be taken
+- For Docker and security steps: prints the actions that would be taken
 - No files are modified, no packages are installed
 - Full log output is still written to the log file
 
@@ -181,6 +222,18 @@ sudo ./devbox.sh doctor
    - Validates packages defined in `pkg.conf`
    - Reports any missing custom packages
 
+5. **SSH Hardening Check**
+   - Verifies SSH configuration (PermitRootLogin, etc.)
+   - Reports if SSH hardening has been applied
+
+6. **Firewall Status Check**
+   - Checks if UFW is installed and active
+   - Alerts if firewall is not configured
+
+7. **Deploy User Check**
+   - Verifies deploy user exists
+   - Checks configured group memberships
+
 **Output:**
 - Generates timestamped diagnostic report in `diagnostic_reports/`
 - Displays summary with pass/fail status
@@ -196,10 +249,13 @@ Running diagnostics...
 [INFO] APT package manager is healthy
 [INFO] All essential development tools are present
 [INFO] All custom packages are present
+[INFO] SSH hardening is applied
+[INFO] UFW firewall is active
+[INFO] Deploy user deploy exists
 =======================
 Diagnostic Summary
 status: PASSED
-checks_passed: 4/4
+checks_passed: 7/7
 report generated at: diagnostic_reports/report-2026-02-14-01-45-38.log
 =======================
 ```
@@ -234,6 +290,9 @@ DevBox uses granular exit codes for precise error identification:
 | `12` | No internet connection for diagnostics |
 | `13` | Essential tool missing in diagnostics |
 | `14` | APT package manager is not healthy |
+| `15` | SSH hardening failure |
+| `16` | Firewall configuration failure |
+| `17` | Deploy user setup failure |
 
 ---
 
@@ -726,6 +785,16 @@ SOFTWARE.
 ---
 
 ## Changelog
+
+### v1.2.0 (2026-06-25)
+- **New `--harden` flag** — SSH hardening + UFW firewall configuration
+- **New `--setup-user <name>` flag** — automated deploy user creation with SSH keys and groups
+- **New `--all` / `-a` flag** — single-command full provisioning (install + Docker + security)
+- **New `lib/security.sh`** — modular security automation module
+- **New `conf/security.conf`** — configurable security policies (ports, groups, sudo)
+- **New exit codes** — 15 (SSH), 16 (firewall), 17 (deploy user)
+- **New diagnostic checks** — SSH hardening, firewall status, deploy user verification
+- **SSH hardening** — disables root login, enforces key auth, strong ciphers/MACs, with automatic backup rollback
 
 ### v1.1.0 (2026-06-25)
 - **New `--dry-run` mode** — preview changes before applying
