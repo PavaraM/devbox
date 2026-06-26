@@ -27,6 +27,58 @@ DevBox is an **infrastructure automation tool** that provisions consistent, prod
 
 ---
 
+## Architecture
+
+```mermaid
+graph TB
+    CLI["devbox.sh - CLI Entrypoint"]
+
+    subgraph Config["Configuration"]
+        C1["conf/pkg.conf"]
+        C2["conf/security.conf"]
+        C3["conf/logger.conf"]
+    end
+
+    subgraph Modules["Library Modules"]
+        M1["packages.sh - Package Management"]
+        M2["docker.sh - Container Setup"]
+        M3["security.sh - SSH & Firewall"]
+        M4["diagnostics.sh - Health Checks"]
+        M5["reporting.sh - Report Generation"]
+        M6["logging.sh - Structured Logging"]
+    end
+
+    subgraph Output["Outputs"]
+        O1["System Packages"]
+        O2["Docker Engine + Compose"]
+        O3["Hardened SSH Config"]
+        O4["UFW Firewall Rules"]
+        O5["Deploy User"]
+        O6["Execution Logs"]
+        O7["Diagnostic Reports"]
+    end
+
+    CLI -->|install| M1
+    CLI -->|install --plus-docker| M2
+    CLI -->|install --harden| M3
+    CLI -->|doctor| M4
+    M4 --> M5
+
+    C1 --> M1
+    C2 --> M3
+    C3 --> M6
+
+    M1 --> O1
+    M2 --> O2
+    M3 --> O3
+    M3 --> O4
+    M3 --> O5
+    M6 --> O6
+    M5 --> O7
+```
+
+---
+
 ## Quick Start
 
 ```bash
@@ -93,6 +145,36 @@ devbox/
 │   └── QUICKREF.md        # Quick reference guide
 ├── LICENSE                # MIT License
 └── VERSION                # Version information
+```
+
+---
+
+## Execution Flow
+
+```mermaid
+flowchart TD
+    A["devbox.sh install"] --> B{Root?}
+    B -->|No| C["Exit 1"]
+    B -->|Yes| D{--dry-run?}
+    D -->|Yes| E["Preview Mode<br/>No Changes Made"]
+    D -->|No| F["Install Essentials<br/>git, curl, htop, tmux, build-essential"]
+    F --> G["Install Networking Tools<br/>ufw, iproute2, dnsutils, nmap"]
+    G --> H["Install Custom Packages<br/>from conf/pkg.conf"]
+    H --> I{--plus-docker?}
+    I -->|No| J{--harden?}
+    I -->|Yes| K["Docker Engine<br/>Official Install Script"]
+    K --> L["Docker Compose<br/>v2 Plugin"]
+    L --> M["Docker Config<br/>Service + User Groups"]
+    M --> J
+    J -->|No| N{--setup-user?}
+    J -->|Yes| O["SSH Hardening<br/>Key-Only, Strong Ciphers"]
+    O --> P["UFW Firewall<br/>Default Deny, Rate-Limit SSH"]
+    P --> N
+    N -->|No| Q["Run Doctor<br/>Verify Installation"]
+    N -->|Yes| R["Create Deploy User<br/>SSH Keys, Groups, Sudo"]
+    R --> Q
+    E --> Q
+    Q --> S["Exit 0 - Success"]
 ```
 
 ---
@@ -260,6 +342,24 @@ report generated at: diagnostic_reports/report-2026-02-14-01-45-38.log
 =======================
 ```
 
+### Diagnostic Flow
+
+```mermaid
+flowchart TD
+    A["devbox.sh doctor"] --> B["1. OS Information<br/>Distro, Kernel, Arch"]
+    B --> C["2. APT Health<br/>Package Manager & dpkg Lock"]
+    C --> D["3. Toolchain<br/>All Dev Tools Present"]
+    D --> E["4. Custom Packages<br/>Validated from pkg.conf"]
+    E --> F["5. SSH Hardening<br/>Config Applied?"]
+    F --> G["6. Firewall Status<br/>UFW Active?"]
+    G --> H["7. Deploy User<br/>Exists & Groups OK"]
+    H --> I{All Checks Passed?}
+    I -->|Yes| J["PASSED - 7/7<br/>Report Saved"]
+    I -->|No| K["FAILED - Exit 11<br/>Report Saved"]
+    J --> L["diagnostic_reports/"]
+    K --> L
+```
+
 #### `--help`
 Display usage information and exit codes.
 
@@ -356,6 +456,31 @@ Script ended at Sat Feb 14 01:45:40 +0530 2026 exit_code=0 duration=2.192s
 - **DEBUG** - Detailed operation information
 - **ERROR** - Failed operations with context
 - **WARN** - Non-critical issues (e.g., offline status)
+
+### Logging Pipeline
+
+```mermaid
+flowchart TD
+    EXEC["Script Execution"] --> LEVEL{Log Level}
+    LEVEL -->|ERROR| MAIN["Main Log<br/>logs/devbox_*.log"]
+    LEVEL -->|WARN| MAIN
+    LEVEL -->|INFO| MAIN
+    LEVEL -->|DEBUG| MAIN
+
+    EXEC --> PKG["Package Installation"]
+    PKG --> APT["Per-Package Logs<br/>logs/apt/apt_*.log"]
+
+    EXEC --> DOCTOR["Doctor Command"]
+    DOCTOR --> REPORT["Diagnostic Reports<br/>diagnostic_reports/report-*.log"]
+
+    MAIN --> ARCHIVE{Older than<br/>7 days?}
+    ARCHIVE -->|Yes| ARCHIVED["Auto-Archived<br/>logs/archive/"]
+    ARCHIVE -->|No| ACTIVE["Active Logs<br/>logs/"]
+
+    MAIN --> META1["Timestamp + Level + Message"]
+    MAIN --> META2["Duration Tracking (ms)"]
+    MAIN --> META3["Exit Code Recorded"]
+```
 
 ---
 
@@ -592,6 +717,21 @@ jobs:
 | Structured logs | Multi-level logging for log aggregator integration |
 | Exit codes | Machine-parseable outcomes for automated alerting |
 | Duration tracking | Performance baselining for infrastructure changes |
+
+### CI/CD Pipeline
+
+```mermaid
+flowchart LR
+    A["git push"] --> B["GitHub Actions Triggered"]
+    B --> C["Checkout Repository"]
+    C --> D["devbox.sh install --dry-run<br/>Preview Changes"]
+    D --> E["devbox.sh doctor<br/>Environment Validation"]
+    E --> F{"Quality Gate<br/>All Checks Pass?"}
+    F -->|No| G["Fail Pipeline<br/>Review Logs"]
+    F -->|Yes| H["devbox.sh install --plus-docker<br/>Provision Environment"]
+    H --> I["Run Application Tests"]
+    I --> J["Deploy to Production"]
+```
 
 ### Automation Examples
 
