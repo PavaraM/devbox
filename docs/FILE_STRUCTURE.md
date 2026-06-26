@@ -16,13 +16,13 @@ devbox/
 │   ├── packages.sh
 │   └── reporting.sh
 │
+├── README.md                           # Main project documentation
 ├── docs/
 │   ├── API.md
 │   ├── CONTRIBUTING.md
 │   ├── DEBUGGING.md
 │   ├── FILE_STRUCTURE.md
-│   ├── QUICKREF.md
-│   └── README.md
+│   └── QUICKREF.md
 │
 ├── logs/                               (auto-generated)
 │   ├── devbox_YYYY-MM-DD.log
@@ -99,12 +99,21 @@ devbox/
 
 ---
 
-### docs/ Directory
+### Root Directory (Project Documentation)
 
 **README.md**
 - Main project documentation
 - Usage instructions and examples
 - Feature list and exit codes
+
+**devbox.sh**
+- Main executable script
+- Entry point for all commands
+- Loads library modules and orchestrates operations
+
+---
+
+### docs/ Directory
 
 **API.md**
 - Developer reference

@@ -365,10 +365,12 @@ devbox/
 ├── diagnostic_reports/                 # Diagnostic reports
 │   ├── report-2026-02-14-01-45-38.log
 │   └── archive/                        # Old reports
-├── docs/                               # Documentation
-│   ├── README.md
-│   ├── DEBUGGING.md
+├── README.md                           # Main project documentation
+├── docs/                               # Supporting documentation
 │   ├── API.md
+│   ├── DEBUGGING.md
+│   ├── CONTRIBUTING.md
+│   ├── FILE_STRUCTURE.md
 │   └── QUICKREF.md
 ├── LICENSE                             # MIT License
 └── VERSION                             # Version info
