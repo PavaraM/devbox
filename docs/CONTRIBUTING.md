@@ -70,7 +70,7 @@ What should happen
 What actually happened
 
 **Environment:**
-- DevBox version: 1.0.0
+- DevBox version: 1.2.0
 - OS: Ubuntu 24.04
 - Kernel: 6.17.0
 
@@ -243,7 +243,8 @@ Use appropriate exit codes:
 |-------|---------|
 | 0 | Success |
 | 1-10 | Core errors |
-| 11-19 | Diagnostic errors |
+| 11-14 | Diagnostic errors |
+| 15-17 | Security errors (SSH, firewall, deploy user) |
 | 20-29 | Custom module errors (use for new features) |
 
 ```bash
@@ -261,7 +262,9 @@ my_new_function() {
 ### File Organization
 
 - Place new library functions in appropriate `lib/*.sh` files
+- Library files are: `logging.sh`, `packages.sh`, `docker.sh`, `diagnostics.sh`, `reporting.sh`, **`security.sh`** (v1.2.0+)
 - Keep `devbox.sh` focused on orchestration
+- Configuration goes in `conf/*.conf`, not inline
 - Document new exit codes in help text and README
 
 ---

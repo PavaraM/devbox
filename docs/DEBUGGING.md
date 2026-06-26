@@ -1,6 +1,6 @@
 # DevBox Debugging Guide
 
-Comprehensive troubleshooting and debugging guide for DevBox v1.0
+Comprehensive troubleshooting and debugging guide for DevBox v1.2.0
 
 ---
 
@@ -13,6 +13,7 @@ Comprehensive troubleshooting and debugging guide for DevBox v1.0
 5. [Log Analysis](#log-analysis)
 6. [System Requirements](#system-requirements)
 7. [Recovery Procedures](#recovery-procedures)
+8. [Security Issues](#security-issues)
 
 ---
 
@@ -102,9 +103,13 @@ Use --help for usage information
 **Cause:** Unknown command or option.
 
 **Valid Commands:**
-- `install`
+- `install` (or `i`)
 - `install --plus-docker`
-- `doctor`
+- `doctor` (or `d`)
+- `--harden` (v1.2.0+ — SSH hardening + UFW firewall)
+- `--setup-user <name>` (v1.2.0+ — create deploy user)
+- `--all` / `-a` (v1.2.0+ — full provisioning)
+- `--dry-run` (preview any non-readonly command)
 - `--help`
 
 **Solution:**
@@ -132,6 +137,7 @@ ls -la lib/
 # - logging.sh
 # - packages.sh
 # - reporting.sh
+# - security.sh
 
 # Check permissions
 ls -l lib/*.sh
@@ -164,6 +170,7 @@ bash -n lib/packages.sh
 bash -n lib/docker.sh
 bash -n lib/diagnostics.sh
 bash -n lib/reporting.sh
+bash -n lib/security.sh
 ```
 
 ---
@@ -771,6 +778,126 @@ sudo ./devbox.sh doctor
 
 ---
 
+### Code 15: SSH Hardening Failure ❌ (v1.2.0+)
+```bash
+Error: SSH hardening failed — original config restored from backup
+```
+
+**Cause:** An error occurred while rewriting `/etc/ssh/sshd_config`. DevBox automatically rolls back from the timestamped backup taken before any changes.
+
+**Diagnostic Steps:**
+```bash
+# Confirm rollback succeeded
+ls -la /etc/ssh/sshd_config.devbox-backup.*
+
+# View failure detail in main log
+grep "SSH hardening" logs/devbox_*.log
+
+# Validate sshd_config syntax before retrying
+sudo sshd -t
+```
+
+**Common Causes:**
+
+**A. Conflicting directives.** A prior tool (cloud-init, custom Ansible role) wrote a directive DevBox doesn't recognize. Inspect `/etc/ssh/sshd_config` and the backup diff.
+
+**B. Invalid cipher/MAC list.** Edit `conf/security.conf` to use only ciphers/macs your installed `openssh-server` version supports:
+```bash
+ssh -Q cipher   # list supported ciphers
+ssh -Q mac      # list supported MACs
+```
+
+**C. Subsystem missing.** Some minimal images lack `Subsystem sftp`. Add `Subsystem sftp internal-sftp` to `sshd_config` first.
+
+**Solution:**
+```bash
+# Fix the underlying issue, then re-run
+sudo ./devbox.sh --harden
+```
+
+---
+
+### Code 16: Firewall Configuration Failure ❌ (v1.2.0+)
+```bash
+Error: UFW configuration failed
+```
+
+**Cause:** Failed to apply the firewall rule set defined in `conf/security.conf`.
+
+**Diagnostic Steps:**
+```bash
+# Check current UFW status
+sudo ufw status verbose
+
+# View UFW log
+grep "UFW\|firewall" logs/devbox_*.log | tail -30
+
+# Verify iptables rules
+sudo iptables -L -n
+```
+
+**Common Causes:**
+
+**A. UFW already active with conflicting rules.** Reset UFW and re-apply:
+```bash
+sudo ufw reset --force
+sudo ./devbox.sh --harden
+```
+
+**B. SSH port in `FIREWALL_OPEN_PORTS` is wrong.** Confirm the actual `SSH_PORT` matches what `sshd` listens on. Mismatched port = you'll lock yourself out.
+
+**C. nftables backend.** On newer Ubuntu (24.04+), UFW may use nftables. If you see backend errors, force iptables-backend:
+```bash
+sudo update-alternatives --set iptables /usr/sbin/iptables-legacy
+sudo ufw disable && sudo ufw enable
+```
+
+**⚠️ Lockout Prevention:** DevBox never disables SSH access in the firewall. If you set `SSH_PORT` differently in `security.conf`, the rule list *must* include the new port — otherwise you'll be locked out and need out-of-band console access.
+
+---
+
+### Code 17: Deploy User Setup Failure ❌ (v1.2.0+)
+```bash
+Error: Deploy user creation or configuration failed
+```
+
+**Cause:** One of the steps in `--setup-user` failed: user creation, group assignment, SSH key installation, or sudoers configuration.
+
+**Diagnostic Steps:**
+```bash
+# Check if user exists
+id "$DEPLOY_USERNAME"   # sourced from conf/security.conf
+
+# View the deploy log
+grep "deploy\|setup-user" logs/devbox_*.log | tail -30
+
+# Check sudoers file
+sudo cat /etc/sudoers.d/$DEPLOY_USERNAME
+```
+
+**Common Causes:**
+
+**A. Username already exists with different UID.** Either delete the existing user or pick a different `DEPLOY_USERNAME` in `security.conf`.
+
+**B. SSH key path doesn't exist on the host running DevBox.** `conf/security.conf` references a key path — verify it before re-running:
+```bash
+ls -la /path/to/your/keys/deploy_ed25519.pub
+```
+
+**C. `DEPLOY_GROUPS` references a non-existent group.** Check:
+```bash
+getent group docker
+getent group sudo
+```
+
+**Solution:**
+```bash
+# Fix the config, then re-run (script is idempotent)
+sudo ./devbox.sh --setup-user <name>
+```
+
+---
+
 ## Common Issues
 
 ### Issue: "docker: permission denied"
@@ -1142,6 +1269,74 @@ git pull origin main
 
 ---
 
-**Last Updated**: 2026-02-14  
-**DevBox Version**: 1.0.0  
+## Security Issues (v1.2.0+)
+
+### Issue: Locked out after `--harden`
+
+**Cause:** Firewall allow-list doesn't include the port you're connecting on, or SSH service failed to restart.
+
+**Recovery (out-of-band console required):**
+```bash
+# List current UFW rules
+sudo ufw status
+
+# Open the port you're actually on
+sudo ufw allow <your-ssh-port>/tcp
+
+# Restart SSH
+sudo systemctl restart sshd
+sudo systemctl status sshd
+```
+
+**Prevention:** Always run `--harden` in a session with a *second* SSH connection open. That way if your primary session dies, you can recover without out-of-band access.
+
+---
+
+### Issue: SSH host key changed after hardening
+
+**Cause:** DevBox regenerates the host key fingerprint banner; clients see a `REMOTE HOST IDENTIFICATION HAS CHANGED` warning.
+
+**Recovery:**
+```bash
+# On the CLIENT machine — remove the stale fingerprint
+ssh-keygen -R <server-ip-or-hostname>
+
+# Then reconnect — the new key will be trusted on first connection
+```
+
+---
+
+### Issue: `sudoers.d` file not honored
+
+**Cause:** Filename has a `.` or contains characters sudoers rejects, or `DEPLOY_USERNAME` doesn't match the actual user.
+
+**Diagnostic:**
+```bash
+# Check the file sudoers actually sees
+sudo sudo -l -U $DEPLOY_USERNAME
+
+# Validate the file syntax
+sudo visudo -c -f /etc/sudoers.d/$DEPLOY_USERNAME
+```
+
+---
+
+### Issue: `--all` fails partway through
+
+**Cause:** `--all` runs install → harden → setup-user sequentially. If a middle step fails, the script exits with that step's exit code. Earlier steps remain applied (the script doesn't roll back by design — that's why it's a security tool, not a config-management tool).
+
+**Recovery:**
+```bash
+# Inspect what completed
+sudo ./devbox.sh doctor
+
+# Re-run from the failing step
+sudo ./devbox.sh --harden         # if hardening failed
+sudo ./devbox.sh --setup-user <name>   # if user setup failed
+```
+
+---
+
+**Last Updated**: 2026-06-26
+**DevBox Version**: 1.2.0
 **Author**: Pavara Mirihagalla

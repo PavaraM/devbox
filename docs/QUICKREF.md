@@ -36,7 +36,13 @@ sudo ./devbox.sh doctor
 | `install` | Install development tools | `sudo ./devbox.sh install` |
 | `install --plus-docker` | Install tools + Docker | `sudo ./devbox.sh install --plus-docker` |
 | `doctor` | Run system diagnostics | `sudo ./devbox.sh doctor` |
+| `--harden` | SSH hardening + UFW firewall (v1.2.0) | `sudo ./devbox.sh --harden` |
+| `--setup-user <name>` | Create deploy user with SSH keys + sudo (v1.2.0) | `sudo ./devbox.sh --setup-user deploy` |
+| `--all` / `-a` | Full provisioning: install + harden + setup-user (v1.2.0) | `sudo ./devbox.sh --all` |
+| `--dry-run` | Preview changes without applying | `sudo ./devbox.sh --harden --dry-run` |
 | `--help` | Display help message | `./devbox.sh --help` |
+
+**Compose any command with `--dry-run`** to preview what a command would change without actually changing anything.
 
 ---
 
@@ -76,6 +82,9 @@ sudo ./devbox.sh doctor
 | 12 | No internet | Check connection |
 | 13 | Tool missing | Run `install` |
 | 14 | APT unhealthy | Fix package manager |
+| 15 | SSH hardening failure | Check `conf/security.conf` and `sshd -t` |
+| 16 | Firewall configuration failure | Check `ufw status` and `conf/security.conf` |
+| 17 | Deploy user setup failure | Check `conf/security.conf` and username uniqueness |
 
 **Check exit code:**
 ```bash
@@ -649,16 +658,19 @@ ss -tulpn
 | Internet offline | Check network connection |
 | APT locked | Wait or remove `/var/lib/dpkg/lock` |
 | Disk full | Clean with `sudo apt clean` |
+| Locked out after `--harden` | Open the port in UFW out-of-band; see `docs/DEBUGGING.md` |
+| Deploy user missing sudo | Check `/etc/sudoers.d/<user>` and `DEPLOY_SUDO_NOPASSWD` in `security.conf` |
+| SSH host key warning | `ssh-keygen -R <host>` on the client |
 
 ---
 
 ## Version Info
 
-**DevBox Version**: 1.0.0  
-**Release Date**: 2026-02-14  
-**License**: MIT  
+**DevBox Version**: 1.2.0
+**Release Date**: 2026-06-25
+**License**: MIT
 **Author**: Pavara Mirihagalla
 
 ---
 
-**Quick Start**: `git clone https://github.com/PavaraM/devbox.git && cd devbox && chmod +x devbox.sh && sudo ./devbox.sh install --plus-docker`
+**Quick Start**: `git clone https://github.com/PavaraM/devbox.git && cd devbox && chmod +x devbox.sh && sudo ./devbox.sh --all`

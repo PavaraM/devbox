@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
-# DevBox V1.0 - Development Environment Setup Script
-# Author: Pavara Mirihagalla | License: MIT | Date: 2026-02-13
+# DevBox v1.2.0 - Development Environment Setup Script
+# Author: Pavara Mirihagalla | License: MIT | Updated: 2026-06-25
 
 #exit codes:
 # 0  - Success
@@ -55,7 +55,6 @@ Usage: $0 COMMAND [OPTIONS]
 Commands:
   install       Set up development environment with essential packages
   doctor        Run diagnostic checks on the environment
-  --all, -a     Run full setup: install + Docker + security hardening
   --config      Open custom package config in editor
   --help        Display this help message
 

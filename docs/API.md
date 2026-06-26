@@ -489,6 +489,73 @@ local compose_version="v2.24.5"  # Change this
 
 ---
 
+## Security API
+
+### Source
+
+`lib/security.sh` — loaded by `devbox.sh` on v1.2.0+.
+
+### Configuration
+
+`conf/security.conf` is sourced at module load time. Edit values there, not in scripts.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `SSH_PORT` | integer | `22` | Port `sshd` listens on; must match `sshd_config` |
+| `FIREWALL_OPEN_PORTS` | string | `"22 80 443"` | Space-separated ports to allow in UFW |
+| `DEPLOY_USERNAME` | string | `"deploy"` | Username for `--setup-user` |
+| `DEPLOY_SUDO_NOPASSWD` | boolean | `true` | If true, deploy user gets passwordless sudo |
+| `DEPLOY_GROUPS` | string | `"docker,sudo"` | Comma-separated supplementary groups |
+
+### Functions
+
+#### `harden_ssh`
+
+Back up `/etc/ssh/sshd_config` to `sshd_config.devbox-backup.<timestamp>`, rewrite it with strong defaults, validate with `sshd -t`, then restart `sshd`. On any failure, restores the backup.
+
+```bash
+# Direct call (normally invoked via --harden)
+harden_ssh [--dry-run]
+
+# Exits 15 on failure (after rollback).
+```
+
+Writes: key-only auth, strong ciphers/MACs only, root login disabled, password auth disabled.
+
+#### `harden_firewall`
+
+Reset UFW to defaults, then apply the allow-list from `conf/security.conf`. Rate-limits SSH.
+
+```bash
+harden_firewall [--dry-run]
+```
+
+Exits 16 on failure.
+
+#### `setup_deploy_user <username>`
+
+Create the user (if missing), set up `~/.ssh/authorized_keys`, add supplementary groups, write `/etc/sudoers.d/<username>`. Idempotent — safe to re-run.
+
+```bash
+setup_deploy_user "$DEPLOY_USERNAME" [--dry-run]
+```
+
+Exits 17 on failure.
+
+#### `security_hardening_all`
+
+Composite — runs `harden_ssh` + `harden_firewall` + `setup_deploy_user` in sequence. Does not roll back earlier steps if a later step fails (each step's exit code is what you see).
+
+### Idempotency
+
+All security functions check current state before modifying. Re-running `--harden` on an already-hardened host produces no diff. This is what makes DevBox safe to run on existing systems.
+
+### Dry Run
+
+Every security function accepts `--dry-run` and prints planned changes without applying them. Exit code still reflects what would have happened.
+
+---
+
 ## Diagnostics API
 
 ### Source
