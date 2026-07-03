@@ -41,18 +41,15 @@ check_and_install_apt() {
     log INFO "$name not installed"
     log DEBUG "Running apt install $pkg_name"
     if apt install "$pkg_name" -y >> "$aptlog" 2>&1; then
-        if [[ -n "$SUDO_USER" ]]; then
-            chown "$SUDO_USER:$SUDO_USER" "$aptlog"
-        fi
         echo "$name installed successfully."
         log INFO "$name installation successful"
     else
-        if [[ -n "$SUDO_USER" ]]; then
-            chown "$SUDO_USER:$SUDO_USER" "$aptlog"
-        fi
         echo "$name installation failed (check $aptlog for details)"
         log ERROR "$name installation failed (see apt log: apt_$TIMESTAMP-$name.log)"
         return 5
+    fi
+    if [[ -n "$SUDO_USER" ]]; then
+        chown "$SUDO_USER:$SUDO_USER" "$aptlog"
     fi
 }
 

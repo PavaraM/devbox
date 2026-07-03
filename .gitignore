@@ -1,12 +1,15 @@
 logs/
 *.log
 .vscode/
+.opencode/
 diagnostic_reports/
+graphify-out/
+packer/
 *.tmp
 *.bak
 *.swp
 *.swo
-*.DS_Store
+.DS_Store
 *.env
 *.env.local
 *.env.development

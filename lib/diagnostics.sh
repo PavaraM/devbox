@@ -140,9 +140,9 @@ deploy_user_check() {
 }
 
 report_summary() {
-    local total_checks="${#GENERAL_HEALTH_CHECKS[@]}"
+    local total_checks=7
 
-    if [ "$passed" -eq "$total_checks" ]; then
+    if [[ "$passed" -eq "$total_checks" && "$total_checks" -gt 0 ]]; then
         status="PASSED"
     else
         status="FAILED"
