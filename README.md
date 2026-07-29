@@ -1,13 +1,13 @@
 # DevBox
 
-**Infrastructure-as-Code for development environments — automated provisioning, container orchestration, and observability for Ubuntu/Debian systems.**
+**Infrastructure-as-Code for development environments — automated provisioning, container orchestration, and observability for any Linux distribution.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.2-blue.svg)](https://github.com/PavaraM/devbox)
+[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](https://github.com/PavaraM/devbox)
 [![Shell](https://img.shields.io/badge/shell-bash-green.svg)](https://www.gnu.org/software/bash/)
 [![Maintained](https://img.shields.io/badge/maintained-yes-brightgreen.svg)](https://github.com/PavaraM/devbox)
 
-DevBox is an **infrastructure automation tool** that provisions consistent, production-ready development environments on Ubuntu/Debian. It handles package management, Docker container orchestration, system diagnostics, and observability logging — all through a modular IaC (Infrastructure as Code) architecture with idempotent execution, granular error handling, and a dry-run mode for safe change previews.
+DevBox is an **infrastructure automation tool** that provisions consistent, production-ready development environments on any Linux distribution. It handles package management, Docker container orchestration, system diagnostics, and observability logging — all through a modular IaC (Infrastructure as Code) architecture with idempotent execution, granular error handling, and a dry-run mode for safe change previews.
 
 ---
 
@@ -23,6 +23,10 @@ DevBox is an **infrastructure automation tool** that provisions consistent, prod
 👤 **Deploy User** — Automated deploy user creation with SSH keys, group membership, and sudo configuration  
 👁️ **Change Preview** — `--dry-run` mode to review modifications before applying them  
 🎯 **Extensible** — Custom packages via `conf/pkg.conf`, modular library design for easy extension  
+🐧 **Multi-Distro** — Supports Debian, Ubuntu, Fedora, RHEL, Arch Linux, Alpine, openSUSE  
+🎛️ **Profiles** — 10 pre-built profiles (minimal to cloud-dev), composable with `--profile`  
+🔌 **Hook System** — 8 lifecycle phases with user-defined scripts  
+🚀 **Zero-Dep Bootstrap** — `curl | sh` installer works on any POSIX system  
 📋 **CI/CD Ready** — Scriptable, automated, with detailed exit codes for pipeline integration
 
 ---
@@ -33,40 +37,68 @@ DevBox is an **infrastructure automation tool** that provisions consistent, prod
 graph TB
     CLI["devbox.sh - CLI Entrypoint"]
 
+    subgraph Init["Initialization"]
+        D1["lib/distro.sh - Distro Detection"]
+        D2["lib/pkgmap.sh - Package Mapping"]
+        D3["lib/config.sh - Config Loader"]
+    end
+
     subgraph Config["Configuration"]
         C1["conf/pkg.conf"]
         C2["conf/security.conf"]
         C3["conf/logger.conf"]
+        C4["conf/profiles/*.conf"]
+        C5["conf/hooks/*/"]
     end
 
     subgraph Modules["Library Modules"]
-        M1["packages.sh - Package Management"]
-        M2["docker.sh - Container Setup"]
-        M3["security.sh - SSH & Firewall"]
-        M4["diagnostics.sh - Health Checks"]
-        M5["reporting.sh - Report Generation"]
-        M6["logging.sh - Structured Logging"]
+        M1["lib/packages.sh - Package Management"]
+        M2["lib/docker.sh - Container Setup"]
+        M3["lib/security.sh - SSH & Firewall"]
+        M4["lib/diagnostics.sh - Health Checks"]
+        M5["lib/reporting.sh - Report Generation"]
+        M6["lib/logging.sh - Structured Logging"]
+        M7["lib/profiles.sh - Profile Engine"]
+        M8["lib/hooks.sh - Hook Runner"]
     end
 
     subgraph Output["Outputs"]
         O1["System Packages"]
         O2["Docker Engine + Compose"]
         O3["Hardened SSH Config"]
-        O4["UFW Firewall Rules"]
+        O4["Firewall Rules"]
         O5["Deploy User"]
         O6["Execution Logs"]
         O7["Diagnostic Reports"]
     end
 
+    CLI --> D1
+    D1 --> D2
+    CLI --> D3
+    D3 --> C1
+    D3 --> C2
+    D3 --> C3
+    D3 --> C4
+    D3 --> C5
+
     CLI -->|install| M1
     CLI -->|install --plus-docker| M2
     CLI -->|install --harden| M3
     CLI -->|doctor| M4
+    CLI -->|profiles| M7
+    CLI -->|hooks| M8
+
+    M1 --> M2
+    M2 --> M3
     M4 --> M5
 
     C1 --> M1
     C2 --> M3
     C3 --> M6
+    C4 --> M7
+    C5 --> M8
+
+    D2 --> M1
 
     M1 --> O1
     M2 --> O2
@@ -80,6 +112,20 @@ graph TB
 ---
 
 ## Quick Start
+
+### One-Line Install (Recommended)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/v2/bootstrap.sh | sh
+```
+
+With a profile:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/v2/bootstrap.sh | sh -s -- --profile python-dev
+```
+
+### Manual Install
 
 ```bash
 # Clone the repository
@@ -108,38 +154,62 @@ sudo ./devbox.sh doctor
 
 ### Prerequisites
 
-- Ubuntu 20.04+ (or Debian-based distributions)
-- Root/sudo access
-- Internet connection
+- **Any Linux distribution** — Debian, Ubuntu, Fedora, RHEL, Arch, Alpine, openSUSE
+- **Root/sudo access**
+- **Internet connection**
+- **bash** (installed by bootstrap.sh if missing)
 
 ### Project Structure
 
 ```
 devbox/
-├── devbox.sh              # Main script
+├── devbox.sh              # Main CLI entrypoint
+├── bootstrap.sh           # Zero-dependency POSIX installer
 ├── conf/                  # Configuration files
 │   ├── pkg.conf           # Custom package configuration
 │   ├── logger.conf        # Logger configuration
-│   └── security.conf      # SSH, firewall, and deploy user settings
+│   ├── security.conf      # SSH, firewall, and deploy user settings
+│   ├── profiles/          # Profile definitions
+│   │   ├── minimal.conf
+│   │   ├── base.conf
+│   │   ├── standard.conf
+│   │   ├── full.conf
+│   │   ├── secure.conf
+│   │   ├── python-dev.conf
+│   │   ├── node-dev.conf
+│   │   ├── go-dev.conf
+│   │   ├── rust-dev.conf
+│   │   └── cloud-dev.conf
+│   └── hooks/             # Lifecycle hook scripts
+│       ├── pre-install/
+│       ├── post-install/
+│       ├── pre-docker/
+│       ├── post-docker/
+│       ├── pre-harden/
+│       ├── post-harden/
+│       ├── pre-user/
+│       └── post-user/
 ├── lib/                   # Library modules
-│   ├── diagnostics.sh     # System diagnostics & health checks
-│   ├── docker.sh          # Docker installation & setup
-│   ├── logging.sh         # Logging utilities
+│   ├── distro.sh          # Multi-distro detection
+│   ├── pkgmap.sh          # Package name mapping
+│   ├── config.sh          # Configuration loader (hierarchical)
+│   ├── profiles.sh        # Profile engine
+│   ├── hooks.sh           # Hook runner
 │   ├── packages.sh        # Package management
+│   ├── docker.sh          # Container setup
+│   ├── security.sh        # SSH hardening, firewall, deploy user
+│   ├── diagnostics.sh     # System diagnostics & health checks
 │   ├── reporting.sh       # Diagnostic report generation
-│   └── security.sh        # SSH hardening, firewall, deploy user
+│   └── logging.sh         # Structured logging
 ├── logs/                  # Execution logs (auto-created)
 │   ├── devbox_*.log       # Main script logs
 │   ├── apt/               # Per-package installation logs
-│   │   └── apt_*.log   
+│   │   └── apt_*.log
 │   └── archive/           # Archived logs (7+ days old)
-│       ├── devbox_*.log
-│       └── apt/
 ├── diagnostic_reports/    # System diagnostic reports
 │   ├── report-*.log       # Timestamped diagnostic reports
 │   └── archive/           # Archived reports
 ├── docs/
-│   ├── README.md          # This file
 │   ├── API.md             # API documentation for developers
 │   ├── DEBUGGING.md       # Debugging guide
 │   └── QUICKREF.md        # Quick reference guide
@@ -153,28 +223,33 @@ devbox/
 
 ```mermaid
 flowchart TD
-    A["devbox.sh install"] --> B{Root?}
+    A["devbox.sh install"] --> DETECT["Distro Detection<br/>lib/distro.sh"]
+    DETECT --> LOADCFG["Config Loader<br/>lib/config.sh"]
+    LOADCFG --> PROFILES["Profile Engine<br/>lib/profiles.sh"]
+    PROFILES --> HOOKS_PRE{"Hooks: pre-install"}
+    HOOKS_PRE --> B{Root?}
     B -->|No| C["Exit 1"]
     B -->|Yes| D{--dry-run?}
     D -->|Yes| E["Preview Mode<br/>No Changes Made"]
     D -->|No| F["Install Essentials<br/>git, curl, htop, tmux, build-essential"]
     F --> G["Install Networking Tools<br/>ufw, iproute2, dnsutils, nmap"]
-    G --> H["Install Custom Packages<br/>from conf/pkg.conf"]
+    G --> H["Install Custom + Profile Packages<br/>from pkg.conf + profile"]
     H --> I{--plus-docker?}
     I -->|No| J{--harden?}
-    I -->|Yes| K["Docker Engine<br/>Official Install Script"]
+    I -->|Yes| K["Docker Engine<br/>Distro-Specific Install"]
     K --> L["Docker Compose<br/>v2 Plugin"]
     L --> M["Docker Config<br/>Service + User Groups"]
     M --> J
     J -->|No| N{--setup-user?}
-    J -->|Yes| O["SSH Hardening<br/>Key-Only, Strong Ciphers"]
-    O --> P["UFW Firewall<br/>Default Deny, Rate-Limit SSH"]
+    J -->|Yes| O["SSH Hardening<br/>Distro-Specific SSH Reload"]
+    O --> P["Firewall Setup<br/>UFW / firewalld / nftables"]
     P --> N
-    N -->|No| Q["Run Doctor<br/>Verify Installation"]
+    N -->|No| Q["Hooks: post-install"]
     N -->|Yes| R["Create Deploy User<br/>SSH Keys, Groups, Sudo"]
     R --> Q
     E --> Q
-    Q --> S["Exit 0 - Success"]
+    Q --> S["Run Doctor<br/>Verify Installation"]
+    S --> T["Exit 0 - Success"]
 ```
 
 ---
@@ -284,33 +359,30 @@ sudo ./devbox.sh doctor
 
 **Diagnostic Checks:**
 1. **OS Information**
-   - Distribution and version
-   - Kernel version
-   - System architecture
-   - User permissions
-   - Internet connectivity
+   - Distribution, version, and family
+   - Kernel version and architecture
+   - User permissions and internet connectivity
 
 2. **Package Manager Health**
-   - APT availability
-   - dpkg lock status
-   - Broken package detection
+   - Detects apt / dnf / yum / pacman / apk / zypper
+   - Lock status and broken package detection
 
 3. **Toolchain Verification**
    - Checks for all essential development tools
    - Validates networking utilities
-   - Reports missing packages
+   - Uses distro-aware package name mapping
 
-4. **Custom Package Verification**
-   - Validates packages defined in `pkg.conf`
-   - Reports any missing custom packages
+4. **Custom + Profile Package Verification**
+   - Validates packages from `pkg.conf` and active profile
+   - Maps canonical names to distro-specific names
 
 5. **SSH Hardening Check**
-   - Verifies SSH configuration (PermitRootLogin, etc.)
+   - Verifies SSH configuration (sshd/ssh/dropbear)
    - Reports if SSH hardening has been applied
 
 6. **Firewall Status Check**
-   - Checks if UFW is installed and active
-   - Alerts if firewall is not configured
+   - Detects active firewall (ufw / firewalld / nftables)
+   - Alerts if no firewall is configured
 
 7. **Deploy User Check**
    - Verifies deploy user exists
@@ -324,15 +396,16 @@ sudo ./devbox.sh doctor
 Example output:
 ```
 Running diagnostics...
+[INFO] Family: debian
 [INFO] Distro: Ubuntu 24.04 LTS
 [INFO] Kernel: 6.17.0-14-generic
 [INFO] Architecture: x86_64
 [INFO] Internet Connectivity: online
-[INFO] APT package manager is healthy
+[INFO] Package manager (apt) is healthy
 [INFO] All essential development tools are present
-[INFO] All custom packages are present
+[INFO] All custom + profile packages are present
 [INFO] SSH hardening is applied
-[INFO] UFW firewall is active
+[INFO] Firewall (ufw) is active
 [INFO] Deploy user deploy exists
 =======================
 Diagnostic Summary
@@ -346,12 +419,13 @@ report generated at: diagnostic_reports/report-2026-02-14-01-45-38.log
 
 ```mermaid
 flowchart TD
-    A["devbox.sh doctor"] --> B["1. OS Information<br/>Distro, Kernel, Arch"]
-    B --> C["2. APT Health<br/>Package Manager & dpkg Lock"]
+    A["devbox.sh doctor"] --> DETECT["Distro Detection<br/>lib/distro.sh"]
+    DETECT --> B["1. OS Information<br/>Family, Distro, Kernel, Arch"]
+    B --> C["2. Package Manager Health<br/>apt/dnf/yum/pacman/apk/zypper"]
     C --> D["3. Toolchain<br/>All Dev Tools Present"]
-    D --> E["4. Custom Packages<br/>Validated from pkg.conf"]
-    E --> F["5. SSH Hardening<br/>Config Applied?"]
-    F --> G["6. Firewall Status<br/>UFW Active?"]
+    D --> E["4. Custom + Profile Packages<br/>Canonical → Distro Mapping"]
+    E --> F["5. SSH Hardening<br/>sshd/ssh/dropbear Checked"]
+    F --> G["6. Firewall Status<br/>ufw/firewalld/nftables Active?"]
     G --> H["7. Deploy User<br/>Exists & Groups OK"]
     H --> I{All Checks Passed?}
     I -->|Yes| J["PASSED - 7/7<br/>Report Saved"]
@@ -367,12 +441,114 @@ Display usage information and exit codes.
 ./devbox.sh --help
 ```
 
+#### `distro`
+Display detected distribution information.
+
+```bash
+./devbox.sh distro
+```
+
+Example output:
+```
+Family:     debian
+Distro:     Ubuntu
+Version:    24.04
+ID:         ubuntu
+ID_LIKE:    debian
+Kernel:     6.17.0-14-generic
+Arch:       x86_64
+Package:    apt
+Service:    systemctl
+Firewall:   ufw
+```
+
+#### `profiles`
+List available profiles and their descriptions.
+
+```bash
+./devbox.sh profiles
+```
+
+#### `hooks`
+List available lifecycle hooks.
+
+```bash
+./devbox.sh hooks
+```
+
+#### `shell`
+Generate shell completion script.
+
+```bash
+# Bash
+eval "$(./devbox.sh shell bash)"
+
+# Zsh
+eval "$(./devbox.sh shell zsh)"
+```
+
+---
+
+## Profiles
+
+DevBox includes 10 pre-built profiles for common environments. Profiles are composable — use `--profile` multiple times to combine them.
+
+| Profile | Packages | Services |
+|---------|----------|----------|
+| `minimal` | git, curl | — |
+| `base` | git, curl, vim, htop, tmux, tree, unzip | — |
+| `standard` | base + build-essential, ca-certificates, net-tools | — |
+| `full` | standard + docker, harden, deploy user | Docker, UFW, SSH |
+| `secure` | (config only) | SSH hardening, UFW, deploy user |
+| `python-dev` | python3, pip, venv, build-essential, git | — |
+| `node-dev` | nodejs, npm, git, build-essential | — |
+| `go-dev` | golang, git, build-essential | — |
+| `rust-dev` | rustc, cargo, build-essential, git | — |
+| `cloud-dev` | docker, kubectl, helm, terraform | Docker |
+
+Usage:
+
+```bash
+# Install with a Python development profile
+sudo ./devbox.sh install --profile python-dev
+
+# Combine profiles
+sudo ./devbox.sh install --profile python-dev --profile node-dev
+```
+
+Profile configuration is loaded from `conf/profiles/<name>.conf` and can be overridden via the config hierarchy (`./devbox.conf`, `~/.config/devbox/config.conf`, `/etc/devbox/config.conf`).
+
+## Hook System
+
+DevBox supports 8 lifecycle phases for custom scripts:
+
+| Phase | When it runs |
+|-------|-------------|
+| `pre-install` | Before package installation |
+| `post-install` | After package installation |
+| `pre-docker` | Before Docker setup |
+| `post-docker` | After Docker setup |
+| `pre-harden` | Before security hardening |
+| `post-harden` | After security hardening |
+| `pre-user` | Before deploy user creation |
+| `post-user` | After deploy user creation |
+
+Place executable scripts in `conf/hooks/<phase>/`:
+
+```bash
+# Example: conf/hooks/pre-install/10-preflight.sh
+#!/bin/bash
+df -h / | tail -1 | awk '{ if ($5+0 > 90) { print "WARNING: disk usage at "$5; exit 1 } }'
+```
+
 ---
 
 ## Exit Codes
 
 DevBox uses granular exit codes for precise error identification:
 
+| Code | Meaning |
+|------|---------|
 | Code | Meaning |
 |------|---------|
 | `0` | Success |
@@ -389,10 +565,14 @@ DevBox uses granular exit codes for precise error identification:
 | `11` | Diagnostic check failure |
 | `12` | No internet connection for diagnostics |
 | `13` | Essential tool missing in diagnostics |
-| `14` | APT package manager is not healthy |
+| `14` | Package manager is not healthy |
 | `15` | SSH hardening failure |
 | `16` | Firewall configuration failure |
 | `17` | Deploy user setup failure |
+| `18` | Distro detection failure |
+| `19` | Profile load failure |
+| `20` | Config parse failure |
+| `21` | Hook execution failure |
 
 ---
 
@@ -565,13 +745,11 @@ run_install() {
 grep "installation failed" logs/devbox_*.log
 
 # View package-specific log
-cat logs/apt/apt_*-git.log
+cat logs/apt/apt_*-git.log  # Debian/Ubuntu
+# or check dnf/yum/pacman/apk logs on other distros
 
-# Fix broken packages
-sudo dpkg --configure -a
-sudo apt --fix-broken install
-
-# Retry
+# Retry after fixing package manager
+sudo ./devbox.sh doctor
 sudo ./devbox.sh install
 ```
 
@@ -843,16 +1021,21 @@ git push origin feature/your-feature-name
 ### Testing Checklist
 
 Before submitting a PR:
-- [ ] Test on fresh Ubuntu 22.04 LTS
-- [ ] Test on fresh Ubuntu 24.04 LTS
+- [ ] Test on Debian/Ubuntu (apt)
+- [ ] Test on Fedora/RHEL (dnf)
+- [ ] Test on Arch Linux (pacman)
+- [ ] Test on Alpine Linux (apk)
 - [ ] Test `install` command
+- [ ] Test `install --profile <name>` with various profiles
 - [ ] Test `install --plus-docker` command
 - [ ] Test `install --dry-run` and `install --plus-docker --dry-run`
 - [ ] Test `doctor` command
+- [ ] Test `distro` command
+- [ ] Test `shell` command (bash/zsh autocompletion)
 - [ ] Test with and without internet
 - [ ] Verify log file creation and ownership
 - [ ] Verify diagnostic report generation
-- [ ] Check for shellcheck warnings
+- [ ] Run shellcheck on all .sh files
 - [ ] Update documentation
 
 ---
@@ -925,6 +1108,18 @@ SOFTWARE.
 ---
 
 ## Changelog
+
+### v2.0.0 (2026-07-29)
+- **🌐 Multi-Distro Support** — Debian, Ubuntu, Fedora, RHEL, Arch, Alpine, openSUSE
+- **🏗️ Distro Abstraction** — `lib/distro.sh` with 5 family profiles, unified API for packages/services/firewall
+- **📦 Package Mapping** — `lib/pkgmap.sh` maps canonical names to distro-specific packages
+- **🎛️ Profile System** — 10 pre-built profiles (minimal → cloud-dev) composable via `--profile`
+- **🔌 Hook System** — 8 lifecycle phases with user-defined scripts in `conf/hooks/`
+- **🚀 Bootstrap Installer** — `bootstrap.sh` zero-dependency POSIX `curl | sh` installer
+- **⚙️ Config Hierarchy** — CLI > `./devbox.conf` > `~/.config/devbox/config.conf` > `/etc/devbox/config.conf`
+- **🆕 CLI Improvements** — `distro`, `profiles`, `hooks`, `shell` commands; `--version`/`-V`, `--verbose`/`-v`, `--quiet`/`-q`, short aliases `install`/`i`, `doctor`/`d`
+- **🔁 CI Matrix** — GitHub Actions testing across Ubuntu, Fedora, Arch, Alpine containers
+- **🚦 New Exit Codes** — 18 (distro), 19 (profile), 20 (config), 21 (hooks)
 
 ### v1.2.0 (2026-06-25)
 - **New `--harden` flag** — SSH hardening + UFW firewall configuration
