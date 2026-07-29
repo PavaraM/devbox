@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # lib/reporting.sh
 # Reporting library for devbox diagnostics
 

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # ====================================================
 # LOGGER - BASH UTILS
 # logging library for bash scripts
