@@ -1,24 +1,38 @@
-# lib/security.sh
-# Security hardening functions for devbox
+#!/bin/bash
+# lib/security.sh — Multi-distro security hardening
 
 source "$SCRIPT_DIR/conf/security.conf"
 
-# =============================================
-# SSH HARDENING
-# =============================================
+SSH_SERVICE_NAME=""
+_ssh_svc() {
+    if [[ -z "$SSH_SERVICE_NAME" ]]; then
+        if command -v sshd &>/dev/null; then
+            SSH_SERVICE_NAME="sshd"
+        elif command -v ssh &>/dev/null; then
+            SSH_SERVICE_NAME="ssh"
+        elif command -v dropbear &>/dev/null; then
+            SSH_SERVICE_NAME="dropbear"
+        else
+            SSH_SERVICE_NAME="sshd"
+        fi
+    fi
+    echo "$SSH_SERVICE_NAME"
+}
 
 ssh_harden() {
+    local sshd_config
+    sshd_config=$(ssh_config_path)
     log INFO "Starting SSH hardening..."
 
-    if [[ ! -f /etc/ssh/sshd_config ]]; then
-        log WARN "sshd_config not found — SSH may not be installed"
+    if [[ ! -f "$sshd_config" ]]; then
+        log WARN "sshd_config not found at $sshd_config — SSH may not be installed"
         echo "OpenSSH server is not installed. Skipping SSH hardening."
         return 0
     fi
 
-    local backup="/etc/ssh/sshd_config.devbox.bak"
+    local backup="${sshd_config}.devbox.bak"
     if [[ -f "$backup" ]]; then
-        log INFO "SSH already hardened (backup exists at $backup)"
+        log INFO "SSH already hardened (backup at $backup)"
         echo "SSH is already hardened."
         return 0
     fi
@@ -29,11 +43,11 @@ ssh_harden() {
         return 0
     fi
 
-    cp /etc/ssh/sshd_config "$backup"
+    cp "$sshd_config" "$backup"
     log DEBUG "Original sshd_config backed up to $backup"
 
     {
-        echo "# Hardened by DevBox — $(date)"
+        echo "# Hardened by DevBox v2 — $(date)"
         echo "Include /etc/ssh/sshd_config.d/*.conf"
         echo "Port $SSH_PORT"
         echo "Protocol 2"
@@ -51,78 +65,75 @@ ssh_harden() {
         echo "Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com"
         echo "MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com"
         echo "KexAlgorithms curve25519-sha256,diffie-hellman-group-exchange-sha256"
-    } > /etc/ssh/sshd_config
+    } > "$sshd_config"
+
+    local svc
+    svc=$(_ssh_svc)
 
     if sshd -t &>> "$logfile"; then
-        systemctl reload sshd >> "$logfile" 2>&1
+        if svc_is_active "$svc" &>/dev/null; then
+            svc_reload "$svc" >> "$logfile" 2>&1
+        fi
         echo "SSH configuration hardened successfully."
         log INFO "SSH hardening completed"
         return 0
     else
-        cp "$backup" /etc/ssh/sshd_config
+        cp "$backup" "$sshd_config"
         log ERROR "SSH configuration test failed — restored original config"
         echo "SSH configuration test failed. Changes reverted."
         return 15
     fi
 }
 
-# =============================================
-# FIREWALL CONFIGURATION
-# =============================================
-
 configure_firewall() {
-    log INFO "Configuring UFW firewall..."
+    log INFO "Configuring firewall..."
 
-    if ! command -v ufw &> /dev/null; then
+    if [[ "$FIREWALL_TOOL" == "ufw" ]] && ! command -v ufw &>/dev/null; then
         log WARN "UFW is not installed"
         echo "UFW is not installed. Run 'install' first or install ufw manually."
         return 0
     fi
 
-    if ufw status | grep -q "Status: active"; then
-        log INFO "UFW is already active"
-        echo "UFW firewall is already configured and active."
+    if firewall_is_active; then
+        log INFO "Firewall is already active"
+        echo "Firewall is already configured and active."
         return 0
     fi
 
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
-        echo "[DRY RUN] Would configure UFW firewall rules"
-        log INFO "[DRY RUN] Would configure UFW firewall"
+        echo "[DRY RUN] Would configure firewall rules"
+        log INFO "[DRY RUN] Would configure firewall"
         return 0
     fi
 
-    ufw default deny incoming >> "$logfile" 2>&1
-    ufw default allow outgoing >> "$logfile" 2>&1
+    firewall_default_deny
 
     for port in $FIREWALL_OPEN_PORTS; do
         if [[ "$port" == "22" ]]; then
-            ufw limit "$port/tcp" >> "$logfile" 2>&1
-            log DEBUG "UFW: rate-limited SSH on port $port"
+            firewall_limit_port "$port" "tcp"
+            log DEBUG "Firewall: rate-limited SSH on port $port"
         else
-            ufw allow "$port/tcp" >> "$logfile" 2>&1
-            log DEBUG "UFW: allowed port $port"
+            firewall_allow_port "$port" "tcp"
+            log DEBUG "Firewall: allowed port $port"
         fi
     done
 
-    ufw --force enable >> "$logfile" 2>&1
+    firewall_enable
 
-    log INFO "UFW firewall configured successfully"
-    echo "UFW firewall configured with rules: $(echo "$FIREWALL_OPEN_PORTS" | tr ' ' ',')"
+    log INFO "Firewall configured successfully"
+    echo "Firewall configured with rules: $(echo "$FIREWALL_OPEN_PORTS" | tr ' ' ',')"
     echo "  - Default: deny incoming, allow outgoing"
-    echo "  - SSH (22): rate-limited"
+    if echo "$FIREWALL_OPEN_PORTS" | grep -q "22"; then
+        echo "  - SSH (22): rate-limited"
+    fi
     for port in $FIREWALL_OPEN_PORTS; do
         [[ "$port" != "22" ]] && echo "  - Port $port: allowed"
     done
     return 0
 }
 
-# =============================================
-# DEPLOY USER SETUP
-# =============================================
-
 setup_deploy_user() {
     local username="${1:-$DEPLOY_USERNAME}"
-
     log INFO "Setting up deploy user: $username"
 
     if id "$username" &>/dev/null; then
@@ -131,12 +142,12 @@ setup_deploy_user() {
 
         if [[ "${DRY_RUN:-false}" == "true" ]]; then
             echo "[DRY RUN] Would configure SSH access for $username"
-            log INFO "[DRY RUN] Would configure SSH access for $username"
+            log INFO "[DRY RUN] Would configure SSH for $username"
             return 0
         fi
 
-        setup_deploy_user_ssh "$username"
-        setup_deploy_user_groups "$username"
+        _setup_deploy_user_ssh "$username"
+        _setup_deploy_user_groups "$username"
         return 0
     fi
 
@@ -146,18 +157,18 @@ setup_deploy_user() {
         return 0
     fi
 
-    adduser --disabled-password --gecos "" "$username" >> "$logfile" 2>&1
+    user_add "$username"
     log INFO "User $username created"
 
-    setup_deploy_user_ssh "$username"
-    setup_deploy_user_groups "$username"
+    _setup_deploy_user_ssh "$username"
+    _setup_deploy_user_groups "$username"
 
     echo "Deploy user $username created successfully."
     log INFO "Deploy user $username setup completed"
     return 0
 }
 
-setup_deploy_user_ssh() {
+_setup_deploy_user_ssh() {
     local username=$1
     local home_dir
     home_dir=$(eval echo "~$username")
@@ -187,22 +198,29 @@ setup_deploy_user_ssh() {
     chmod 600 "$ssh_dir/authorized_keys"
 
     if [[ -n "${SUDO_USER:-}" ]]; then
-        chown -R "$SUDO_USER:$SUDO_USER" "$ssh_dir" 2>/dev/null
+        chown -R "$SUDO_USER:$SUDO_USER" "$ssh_dir" 2>/dev/null || true
     fi
     chown -R "$username:$username" "$ssh_dir"
 
-    log INFO "SSH access configured for $username (key source: $key_source)"
+    log INFO "SSH access configured for $username"
     echo "SSH authorized_keys configured for $username."
 }
 
-setup_deploy_user_groups() {
+_setup_deploy_user_groups() {
     local username=$1
 
     IFS=',' read -ra groups <<< "$DEPLOY_GROUPS"
     for group in "${groups[@]}"; do
         group=$(echo "$group" | xargs)
         if getent group "$group" &>/dev/null; then
-            usermod -aG "$group" "$username" >> "$logfile" 2>&1
+            case "$DISTRO_FAMILY" in
+                alpine)
+                    adduser "$username" "$group"
+                    ;;
+                *)
+                    usermod -aG "$group" "$username" >> "$logfile" 2>&1
+                    ;;
+            esac
             log INFO "Added $username to group $group"
         else
             log WARN "Group $group does not exist — skipping"
@@ -210,8 +228,9 @@ setup_deploy_user_groups() {
     done
 
     if [[ "$DEPLOY_SUDO_NOPASSWD" == "true" ]]; then
-        echo "$username ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$username"
-        chmod 440 "/etc/sudoers.d/$username"
+        local sudoer_file="/etc/sudoers.d/$username"
+        echo "$username ALL=(ALL) NOPASSWD:ALL" > "$sudoer_file"
+        chmod 440 "$sudoer_file"
         log INFO "Passwordless sudo configured for $username"
     fi
 }

@@ -1,130 +1,144 @@
-# lib/packages.sh
-# This file contains functions to check and install essential packages for development.
+#!/bin/bash
+# lib/packages.sh — Multi-distro package management
 
-apt_update() {
-    log INFO "Updating APT package lists..."
-    if apt update -y &> /dev/null; then
-        log INFO "APT update successful"
+pkg_update_system() {
+    pkg_update
+    log INFO "Package lists updated successfully"
+    pkg_upgrade
+}
+
+pkg_install_wrapper() {
+    local pkg_log="$SCRIPT_DIR/logs/pkg/$TIMESTAMP-$1.log"
+    mkdir -p "$(dirname "$pkg_log")"
+
+    log DEBUG "Installing $2..."
+    if pkg_verbose_install "$2" >> "$pkg_log" 2>&1; then
+        echo "$1 installed successfully."
+        log INFO "$1 installation successful"
+        return 0
     else
-        log ERROR "APT update failed"
-        return 5
-    fi
-    
-    log INFO "Upgrading installed packages..."
-    if apt upgrade -y &> /dev/null; then
-        log INFO "APT upgrade successful"
-    else
-        log ERROR "APT upgrade failed"
-        return 5
+        echo "$1 installation failed (check $pkg_log for details)"
+        log ERROR "$1 installation failed (see log: $1.log)"
+        return 1
     fi
 }
 
-
-# A generic helper for standard packages
-check_and_install_apt() {
+pkg_check_and_install() {
     local name=$1
-    local pkg_name=$2
-    local aptlog="$SCRIPT_DIR/logs/apt/apt_$TIMESTAMP-$name.log"
+    local pkg_name
+    pkg_name=$(pkg_map "$2")
 
-    log DEBUG "Checking if $pkg_name is installed on this system..."
-    if dpkg -s "$pkg_name" &> /dev/null; then
+    log DEBUG "Checking if $pkg_name is installed..."
+
+    if pkg_installed "$pkg_name"; then
         echo "$name is already available."
         log INFO "$name already installed on this system."
         return 0
     fi
+
     if [[ "${DRY_RUN:-false}" == "true" ]]; then
         echo "[DRY RUN] Would install $name ($pkg_name)"
         log INFO "[DRY RUN] Would install $name ($pkg_name)"
         return 0
     fi
+
     echo "$name is not installed, installing now..."
     log INFO "$name not installed"
-    log DEBUG "Running apt install $pkg_name"
-    if apt install "$pkg_name" -y >> "$aptlog" 2>&1; then
+
+    local log_dir="$SCRIPT_DIR/logs/pkg"
+    mkdir -p "$log_dir"
+    local pkg_log="$log_dir/pkg_$TIMESTAMP-$name.log"
+
+    log DEBUG "Running $PKG_MGR install $pkg_name"
+
+    if pkg_install "$pkg_name" >> "$pkg_log" 2>&1; then
         echo "$name installed successfully."
         log INFO "$name installation successful"
     else
-        echo "$name installation failed (check $aptlog for details)"
-        log ERROR "$name installation failed (see apt log: apt_$TIMESTAMP-$name.log)"
-        return 5
+        echo "$name installation failed (check $pkg_log for details)"
+        log ERROR "$name installation failed (see log: pkg_$TIMESTAMP-$name.log)"
+        return 1
     fi
-    if [[ -n "$SUDO_USER" ]]; then
-        chown "$SUDO_USER:$SUDO_USER" "$aptlog"
+
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        chown "$SUDO_USER:$SUDO_USER" "$pkg_log" 2>/dev/null || true
+    fi
+}
+
+_install_group() {
+    local group_name=$1
+    shift
+    local packages=("$@")
+    local failed=()
+
+    log INFO "Installing $group_name..."
+    for pkg in "${packages[@]}"; do
+        if ! pkg_check_and_install "$pkg" "$pkg"; then
+            failed+=("$pkg")
+        fi
+    done
+
+    if [[ ${#failed[@]} -eq 0 ]]; then
+        log INFO "All $group_name installed successfully"
+        return 0
+    else
+        log ERROR "Failed to install ${#failed[@]} package(s): ${failed[*]}"
+        echo "Warning: Some $group_name failed to install: ${failed[*]}"
+        return 1
     fi
 }
 
 main_essentials() {
-    log INFO "Installing essential development packages..."
-    local failed_packages=()
-    
-    # Check and install each package, tracking failures
-#   check_and_install_apt [name] [pkg-name]
-    check_and_install_apt git git-all || failed_packages+=("git")
-    check_and_install_apt curl curl || failed_packages+=("curl")
-    check_and_install_apt wget wget || failed_packages+=("wget")
-    check_and_install_apt htop htop || failed_packages+=("htop")
-    check_and_install_apt tmux tmux || failed_packages+=("tmux")
-    check_and_install_apt vim neovim || failed_packages+=("vim/neovim")
-    check_and_install_apt unzip unzip || failed_packages+=("unzip")
-    check_and_install_apt tree tree || failed_packages+=("tree")
-    check_and_install_apt net-tools net-tools || failed_packages+=("net-tools")
-    check_and_install_apt ca-certificates ca-certificates || failed_packages+=("ca-certificates")
-    check_and_install_apt build-essential build-essential || failed_packages+=("build-essential")
-
-    # Report results
-    if [ ${#failed_packages[@]} -eq 0 ]; then
-        log INFO "All essential packages installed successfully"
-        return 0
-    else
-        log ERROR "Failed to install ${#failed_packages[@]} package(s): ${failed_packages[*]}"
-        echo "Warning: Some packages failed to install: ${failed_packages[*]}"
-        return 5
-    fi
+    local packages=(
+        "git" "curl" "wget" "htop" "tmux"
+        "vim" "unzip" "tree" "net-tools"
+        "ca-certificates" "build-essential"
+    )
+    _install_group "essential packages" "${packages[@]}"
 }
 
 networkingtools() {
-    log INFO "Installing networking tools..."
-    local failed_packages=()
-    
-    check_and_install_apt ufw ufw || failed_packages+=("ufw")
-    check_and_install_apt iproute2 iproute2 || failed_packages+=("iproute2")
-    check_and_install_apt dnsutils dnsutils || failed_packages+=("dnsutils")
-    check_and_install_apt nmap nmap || failed_packages+=("nmap")
-    # ufw, iproute2, dnsutils, nmap
-    # Report results
-    if [ ${#failed_packages[@]} -eq 0 ]; then
-        log INFO "All networking tools installed successfully"
-        return 0
-    else
-        log ERROR "Failed to install ${#failed_packages[@]} networking tool(s): ${failed_packages[*]}"
-        echo "Warning: Some networking tools failed to install: ${failed_packages[*]}"
-        return 5
-    fi
+    local packages=(
+        "ufw" "iproute2" "dnsutils" "nmap"
+    )
+    _install_group "networking tools" "${packages[@]}"
 }
 
 custom_packages() {
-    log DEBUG "Checking for custom packages to install from \"$SCRIPT_DIR/conf/pkg.conf\"..."
-    source "$SCRIPT_DIR/conf/pkg.conf"
-    local failed_packages=()
-    if [ ${#CUSTOM_PACKAGES[@]} -eq 0 ]; then
+    log DEBUG "Checking for custom packages from \"$SCRIPT_DIR/conf/pkg.conf\"..."
+    if [[ -f "$SCRIPT_DIR/conf/pkg.conf" ]]; then
+        source "$SCRIPT_DIR/conf/pkg.conf"
+    fi
+
+    if [[ ${#CUSTOM_PACKAGES[@]} -eq 0 ]]; then
         log INFO "No custom packages to install"
         return 0
     fi
+
     echo "Custom packages to install: ${CUSTOM_PACKAGES[*]}"
     log INFO "Installing custom packages: ${CUSTOM_PACKAGES[*]}"
+
+    local failed=()
     for pkg in "${CUSTOM_PACKAGES[@]}"; do
-        if ! check_and_install_apt "$pkg" "$pkg"; then
-            log ERROR "Failed to install custom package: $pkg"
-            failed_packages+=("$pkg")
-        else
-            log INFO "Custom package $pkg installed successfully"
+        if ! pkg_check_and_install "$pkg" "$pkg"; then
+            failed+=("$pkg")
         fi
     done
 
-    if [ ${#failed_packages[@]} -eq 0 ]; then
+    if [[ ${#failed[@]} -eq 0 ]]; then
         return 0
     fi
 
-    log ERROR "Failed to install ${#failed_packages[@]} custom package(s): ${failed_packages[*]}"
-    return 5
+    log ERROR "Failed to install custom package(s): ${failed[*]}"
+    return 1
+}
+
+pkg_verbose_install() {
+    if [[ "$PKG_MGR" == "pacman" ]]; then
+        pacman -S --noconfirm "$@"
+    elif [[ "$PKG_MGR" == "apk" ]]; then
+        apk add "$@"
+    else
+        pkg_install --verbose "$@"
+    fi
 }
