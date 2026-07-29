@@ -72,6 +72,7 @@ Commands:
   install       Set up development environment with essential packages
   doctor        Run diagnostic checks on the environment
   distro        Display detected operating system information
+  hooks         List installed hooks
   --config      Open custom package config in editor
   --help        Display this help message
 
@@ -110,7 +111,7 @@ fi
 # ============================================================================
 
 # Ensure library scripts are executable
-for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.sh; do
+for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.sh hooks.sh; do
     lib_path="$SCRIPT_DIR/lib/$lib"
     log DEBUG "Checking library: $lib_path"
     if [[ ! -f "$lib_path" ]]; then
@@ -123,7 +124,7 @@ for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.
 done
 
 # Load remaining libraries
-for lib in pkgmap.sh packages.sh docker.sh reporting.sh diagnostics.sh security.sh; do
+for lib in pkgmap.sh packages.sh docker.sh reporting.sh diagnostics.sh security.sh hooks.sh; do
     if source "$SCRIPT_DIR/lib/$lib" &>> "${logfile:-/dev/null}"; then
         log INFO "\"lib/$lib\" loaded successfully"
     else
@@ -137,6 +138,7 @@ done
 
 run_install() {
     log INFO "Starting installation process on $DISTRO_NAME"
+    hooks_run "pre-install"
     pkg_update_system
 
     if ! main_essentials; then
@@ -154,6 +156,7 @@ run_install() {
         exit 5
      fi
 
+    hooks_run "post-install"
     log INFO "Installation completed successfully"
 }
 
@@ -184,12 +187,14 @@ run_doctor() {
 
 setup_docker() {
     log INFO "Starting Docker setup"
+    hooks_run "pre-docker"
     
     if ! docker_setup; then
         log ERROR "Docker setup failed"
         exit 6
     fi
     
+    hooks_run "post-docker"
     log INFO "Docker setup completed successfully"
 }
 
@@ -214,7 +219,7 @@ SETUP_USER=""
 # Parse all arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        install|doctor|distro)
+        install|doctor|distro|hooks)
             if [[ -n "$COMMAND" ]]; then
                 echo "Error: Multiple commands specified" >&2
                 exit 3
@@ -315,12 +320,16 @@ case "$COMMAND" in
         echo "Firewall:   $FIREWALL_TOOL"
         exit 0
     ;;
+    hooks)
+        hooks_list
+    ;;
     install)
         run_install
         if [[ "$INSTALL_DOCKER" == true ]]; then
             setup_docker
         fi
         if [[ "$HARDEN" == true ]]; then
+            hooks_run "pre-harden"
             if ! ssh_harden; then
                 log ERROR "SSH hardening failed"
                 exit 15
@@ -329,12 +338,15 @@ case "$COMMAND" in
                 log ERROR "Firewall configuration failed"
                 exit 16
             fi
+            hooks_run "post-harden"
         fi
         if [[ -n "$SETUP_USER" ]]; then
+            hooks_run "pre-user"
             if ! setup_deploy_user "$SETUP_USER"; then
                 log ERROR "Deploy user setup failed"
                 exit 17
             fi
+            hooks_run "post-user"
         fi
     ;;
     doctor)
