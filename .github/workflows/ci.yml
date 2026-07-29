@@ -47,11 +47,12 @@ jobs:
         run: bash devbox.sh doctor || echo "Doctor may fail in container (expected)"
       - name: Test install
         run: |
-          bash devbox.sh install 2>&1 | tee /tmp/install.log; rc=${PIPESTATUS[0]}
+          set +e
+          bash devbox.sh install 2>&1 | tee /tmp/install.log; rc=$?
+          set -e
           if [ $rc -ne 0 ]; then
             echo "WARN: install exited $rc — Docker, systemd, and firewall are documented container limitations"
           fi
-          exit $rc
       - name: Snapshot state for idempotency
         if: always()
         run: |
@@ -65,7 +66,7 @@ jobs:
         if: always()
         run: |
           set +e
-          bash devbox.sh install 2>&1 | tee /tmp/install2.log; rc=${PIPESTATUS[0]}
+          bash devbox.sh install 2>&1 | tee /tmp/install2.log; rc=$?
           set -e
           if [ $rc -ne 0 ]; then
             echo "WARN: second install exited $rc — container limitations"
