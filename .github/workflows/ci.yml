@@ -21,8 +21,8 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-latest
-          - fedora-latest
+          - ubuntu:latest
+          - fedora:latest
           - archlinux:latest
           - alpine:latest
     runs-on: ubuntu-latest
@@ -30,11 +30,13 @@ jobs:
       image: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install deps
+      - name: Install bash (required for devbox)
         run: |
-          case "$(uname -m)" in
-            *)  echo "Running on $(uname -a)" ;;
-          esac
+          command -v bash && exit 0
+          if command -v apk; then apk add --no-cache bash
+          elif command -v dnf; then dnf install -y bash
+          elif command -v zypper; then zypper install -y bash
+          fi
       - name: Make scripts executable
         run: chmod +x devbox.sh lib/*.sh
       - name: Check distro detection
