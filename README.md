@@ -116,10 +116,10 @@ graph TB
 ### One-Line Install (Recommended)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/v2/bootstrap.sh | sh
+curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/main/bootstrap.sh | sh
 ```
 
-> **Security Note:** The examples above use the **mutable `v2` branch**, which
+> **Security Note:** The examples above use the **default branch**, which
 > can be force-pushed. For production, **pin to an immutable release tag**
 > (e.g., `v2.0.0`). This applies to `bootstrap.sh` **and** the `devbox.sh` and
 > `lib/*.sh` files it fetches — the entire chain must use the same pinned ref.
@@ -136,7 +136,7 @@ curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/v2/bootstrap.sh | sh
 With a profile:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/v2/bootstrap.sh | sh -s -- --profile python-dev
+curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/main/bootstrap.sh | sh -s -- --profile python-dev
 ```
 
 ### Manual Install
