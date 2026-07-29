@@ -117,6 +117,7 @@ graph TB
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/main/bootstrap.sh | sh
+wget -qO- https://raw.githubusercontent.com/PavaraM/devbox/main/bootstrap.sh | sh
 ```
 
 > **Security Note:** The examples above use the **default branch**, which
@@ -125,7 +126,7 @@ curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/main/bootstrap.sh | 
 > `lib/*.sh` files it fetches — the entire chain must use the same pinned ref.
 >
 > **Recommended verification:**
-> 1. Download: `curl -fsSL -O https://github.com/PavaraM/devbox/raw/v2.0.0/bootstrap.sh`
+> 1. Download: `curl -fsSL -O https://github.com/PavaraM/devbox/raw/v2.0.0/bootstrap.sh` or `wget https://github.com/PavaraM/devbox/raw/v2.0.0/bootstrap.sh`
 > 2. Review: `less bootstrap.sh`
 > 3. Verify checksums: `curl -fsSL https://github.com/PavaraM/devbox/releases/download/v2.0.0/SHA256SUMS | sha256sum -c --ignore-missing`
 > 4. Execute: `sh bootstrap.sh`
@@ -137,6 +138,7 @@ With a profile:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/main/bootstrap.sh | sh -s -- --profile python-dev
+wget -qO- https://raw.githubusercontent.com/PavaraM/devbox/main/bootstrap.sh | sh -s -- --profile python-dev
 ```
 
 ### Manual Install
