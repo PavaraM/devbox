@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
-# DevBox v1.2.0 - Development Environment Setup Script
-# Author: Pavara Mirihagalla | License: MIT | Updated: 2026-06-25
+# DevBox v2.0 - Development Environment Setup Script
+# Author: Pavara Mirihagalla | License: MIT
 
 #exit codes:
 # 0  - Success
@@ -18,7 +18,7 @@ set -euo pipefail
 # 11 - Diagnostic check failure
 # 12 - No internet connection for diagnostics
 # 13 - Essential tool missing in diagnostics
-# 14 - apt package manager is not healthy
+# 14 - Package manager is not healthy
 # 15 - SSH hardening failure
 # 16 - Firewall configuration failure
 # 17 - Deploy user setup failure
@@ -32,6 +32,20 @@ if ! source "$SCRIPT_DIR/lib/logging.sh"; then
     exit 4
 fi
 logger_init
+
+# Load distro detection early (no deps)
+for lib in distro.sh; do
+    lib_path="$SCRIPT_DIR/lib/$lib"
+    if [[ -f "$lib_path" ]]; then
+        source "$lib_path"
+    fi
+done
+
+# Detect the OS distribution
+if ! distro_init; then
+    echo "Error: Unsupported Linux distribution" >&2
+    exit 4
+fi
 
 
 # ============================================================================
@@ -48,51 +62,37 @@ fi
 # Allow --help without root
 if [[ "$1" == "--help" ]]; then
     cat << EOF
-DevBox v1.2 - Development Environment Setup
+DevBox v2.0 - Multi-Distro Development Environment Setup
+
+Detected: $DISTRO_NAME
 
 Usage: $0 COMMAND [OPTIONS]
 
 Commands:
   install       Set up development environment with essential packages
   doctor        Run diagnostic checks on the environment
+  distro        Display detected operating system information
   --config      Open custom package config in editor
   --help        Display this help message
 
 Options:
   --plus-docker Install Docker and Docker Compose
-  --harden      Harden SSH configuration and configure UFW firewall
+  --harden      Harden SSH configuration and configure firewall
   --setup-user  Create a deploy user with SSH access and groups (requires username)
   --all, -a     Shorthand for --plus-docker --harden (can combine with --setup-user)
+  --profile P   Use a profile from conf/profiles/ (repeatable: --profile python-dev --profile node-dev)
   --dry-run     Show what would be done without making changes
+
+Supported Distributions:
+  Debian/Ubuntu, Fedora/RHEL, Arch Linux, Alpine Linux, openSUSE
 
 Examples:
   $0 install
-  $0 install --plus-docker
-  $0 install --harden
+  $0 install --profile python-dev
   $0 install --plus-docker --harden --setup-user deploy
   $0 --all --setup-user deploy
-  $0 install --dry-run
   $0 doctor
-
-Exit Codes:
-  0  - Success
-  1  - No root permission
-  2  - No argument provided
-  3  - Invalid argument
-  4  - Library loading failure
-  5  - Package installation failure
-  6  - Docker installation failure
-  7  - Docker service failure
-  8  - Docker group setup failure
-  9  - Docker Compose installation failure
-  10 - Docker verification failure
-  11 - Diagnostic check failure
-  12 - No internet connection for diagnostics
-  13 - Essential tool missing in diagnostics
-  14 - apt package manager is not healthy
-  15 - SSH hardening failure
-  16 - Firewall configuration failure
-  17 - Deploy user setup failure
+  $0 distro
 
 EOF
     exit 0
@@ -110,7 +110,7 @@ fi
 # ============================================================================
 
 # Ensure library scripts are executable
-for lib in packages.sh docker.sh diagnostics.sh reporting.sh security.sh; do
+for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.sh; do
     lib_path="$SCRIPT_DIR/lib/$lib"
     log DEBUG "Checking library: $lib_path"
     if [[ ! -f "$lib_path" ]]; then
@@ -123,7 +123,7 @@ for lib in packages.sh docker.sh diagnostics.sh reporting.sh security.sh; do
 done
 
 # Load remaining libraries
-for lib in packages.sh docker.sh reporting.sh diagnostics.sh security.sh; do
+for lib in pkgmap.sh packages.sh docker.sh reporting.sh diagnostics.sh security.sh; do
     if source "$SCRIPT_DIR/lib/$lib" &>> "${logfile:-/dev/null}"; then
         log INFO "\"lib/$lib\" loaded successfully"
     else
@@ -136,14 +136,14 @@ done
 # ============================================================================
 
 run_install() {
-    log INFO "Starting installation process"
-    apt_update
-    
+    log INFO "Starting installation process on $DISTRO_NAME"
+    pkg_update_system
+
     if ! main_essentials; then
         log ERROR "Failed to install essential packages"
         exit 5
     fi
-    
+
     if ! networkingtools; then
         log ERROR "Failed to install networking tools"
         exit 5
@@ -153,7 +153,7 @@ run_install() {
         log ERROR "Failed to install custom packages"
         exit 5
      fi
-    
+
     log INFO "Installation completed successfully"
 }
 
@@ -214,7 +214,7 @@ SETUP_USER=""
 # Parse all arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        install|doctor)
+        install|doctor|distro)
             if [[ -n "$COMMAND" ]]; then
                 echo "Error: Multiple commands specified" >&2
                 exit 3
@@ -292,8 +292,8 @@ fi
 # MAIN EXECUTION
 # ============================================================================
 
-echo "DevBox v1.2"
-echo "===================="
+echo "DevBox v2.0 — $DISTRO_NAME"
+echo "=============================="
 if [[ "$DRY_RUN" == true ]]; then
     echo "*** DRY RUN MODE - No changes will be made ***"
     echo ""
@@ -301,6 +301,20 @@ fi
 log INFO "Script started with command: $COMMAND"
 
 case "$COMMAND" in
+    distro)
+        echo "DevBox v2 — Distribution Info"
+        echo "============================="
+        echo "Name:       $DISTRO_NAME"
+        echo "Family:     $DISTRO_FAMILY"
+        echo "Version:    $DISTRO_VERSION"
+        echo "Code Name:  $DISTRO_CODENAME"
+        echo "Arch:       $(uname -m)"
+        echo "Kernel:     $(uname -r)"
+        echo "Pkg Mgr:    $PKG_MGR"
+        echo "Svc Mgr:    $SVC_MGR"
+        echo "Firewall:   $FIREWALL_TOOL"
+        exit 0
+    ;;
     install)
         run_install
         if [[ "$INSTALL_DOCKER" == true ]]; then
