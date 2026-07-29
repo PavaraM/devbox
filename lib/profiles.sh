@@ -32,6 +32,11 @@ profile_load() {
     local name="$1"
     local conf="$PROFILE_DIR/$name.conf"
 
+    if [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        log ERROR "Profile not found: $name"
+        return 1
+    fi
+
     if [[ ! -f "$conf" ]]; then
         log ERROR "Profile not found: $name"
         return 1
