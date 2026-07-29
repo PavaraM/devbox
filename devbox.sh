@@ -59,7 +59,7 @@ if [[ $# -eq 0 ]]; then
     exit 2
 fi
 
-# Allow --help without root
+# Allow --help and --version without root
 if [[ "$1" == "--help" ]]; then
     cat << EOF
 DevBox v2.0 - Multi-Distro Development Environment Setup
@@ -69,9 +69,10 @@ Detected: $DISTRO_NAME
 Usage: $0 COMMAND [OPTIONS]
 
 Commands:
-  install       Set up development environment with essential packages
-  doctor        Run diagnostic checks on the environment
+  install (i)   Set up development environment with essential packages
+  doctor (d)    Run diagnostic checks on the environment
   distro        Display detected operating system information
+  shell         Generate shell completion script
   --config      Open custom package config in editor
   --help        Display this help message
 
@@ -82,13 +83,15 @@ Options:
   --all, -a     Shorthand for --plus-docker --harden (can combine with --setup-user)
   --profile P   Use a profile from conf/profiles/ (repeatable: --profile python-dev --profile node-dev)
   --dry-run     Show what would be done without making changes
+  --verbose, -v Increase log verbosity
+  --quiet, -q   Suppress non-error output
 
 Supported Distributions:
   Debian/Ubuntu, Fedora/RHEL, Arch Linux, Alpine Linux, openSUSE
 
 Examples:
   $0 install
-  $0 install --profile python-dev
+  $0 i --profile python-dev
   $0 install --plus-docker --harden --setup-user deploy
   $0 --all --setup-user deploy
   $0 doctor
@@ -98,7 +101,54 @@ EOF
     exit 0
 fi
 
-# Check for root (after --help check)
+# Allow --version without root
+if [[ "$1" == "--version" || "$1" == "-V" ]]; then
+    if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
+        cat "$SCRIPT_DIR/VERSION"
+    else
+        echo "DevBox v2.0"
+    fi
+    exit 0
+fi
+
+# Check for root (after --help/--version check)
+if [[ "$1" == "shell" ]]; then
+    # shell completions don't need root — generate and exit
+    SHELL_TYPE="${2:-bash}"
+    case "$SHELL_TYPE" in
+        bash)
+            cat << 'BASH_EOF'
+_devbox_completions() {
+    local cur prev words cword
+    _init_completion || return
+    local commands="install doctor distro shell"
+    local opts="--help --version --config --plus-docker --harden --setup-user --all --profile --dry-run --verbose --quiet"
+    if [[ $cword -eq 1 ]]; then
+        COMPREPLY=($(compgen -W "$commands $opts" -- "$cur"))
+    elif [[ $cword -ge 2 ]]; then
+        case "${words[1]}" in
+            install|i) COMPREPLY=($(compgen -W "--plus-docker --harden --setup-user --all --profile --dry-run" -- "$cur")) ;;
+            --profile) local profiles; profiles=$(ls "$SCRIPT_DIR/conf/profiles/"*.conf 2>/dev/null | sed 's|.*/||;s/\.conf$//'); COMPREPLY=($(compgen -W "$profiles" -- "$cur")) ;;
+        esac
+    fi
+} && complete -F _devbox_completions devbox.sh
+BASH_EOF
+        ;;
+        zsh)
+            cat << 'ZSH_EOF'
+#compdef devbox.sh
+_devbox() {
+    local -a commands
+    commands=('install:Set up' 'i:Alias' 'doctor:Diagnose' 'd:Alias' 'distro:OS info' 'shell:Completions')
+    _describe 'command' commands
+}
+ZSH_EOF
+        ;;
+        *) echo "Unsupported shell: $SHELL_TYPE (use bash or zsh)" >&2; exit 1 ;;
+    esac
+    exit 0
+fi
+
 if [[ $EUID -ne 0 ]]; then
     echo "Error: This script must be run as root" >&2
     log ERROR "Not running as root"
@@ -210,11 +260,19 @@ OPEN_CONFIG=false
 DRY_RUN=false
 HARDEN=false
 SETUP_USER=""
+VERBOSE=false
+QUIET=false
 
 # Parse all arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        install|doctor|distro)
+        install|i)
+            [[ "$1" == "i" ]] && COMMAND="install" || COMMAND="$1"
+        ;;
+        doctor|d)
+            [[ "$1" == "d" ]] && COMMAND="doctor" || COMMAND="$1"
+        ;;
+        distro)
             if [[ -n "$COMMAND" ]]; then
                 echo "Error: Multiple commands specified" >&2
                 exit 3
@@ -250,6 +308,12 @@ while [[ $# -gt 0 ]]; do
         ;;
         --config)
             OPEN_CONFIG=true
+        ;;
+        --verbose|-v)
+            VERBOSE=true
+        ;;
+        --quiet|-q)
+            QUIET=true
         ;;
         *)
             invalid_argument "$1"
