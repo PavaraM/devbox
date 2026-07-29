@@ -438,7 +438,7 @@ case "$COMMAND" in
             fi
             hooks_run "post-harden"
         fi
-        local deploy_user="${SETUP_USER:-$(profile_deploy_user)}"
+        deploy_user="${SETUP_USER:-$(profile_deploy_user)}"
         if [[ -n "$deploy_user" ]]; then
             hooks_run "pre-user"
             if ! setup_deploy_user "$deploy_user"; then

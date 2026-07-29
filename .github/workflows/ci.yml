@@ -13,7 +13,7 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
       - name: Run shellcheck
-        run: shellcheck devbox.sh lib/*.sh bootstrap.sh
+        run: shellcheck --severity=error devbox.sh lib/*.sh bootstrap.sh
 
   test:
     needs: lint

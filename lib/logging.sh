@@ -1,3 +1,4 @@
+#!/bin/bash
 # ====================================================
 # LOGGER - BASH UTILS
 # logging library for bash scripts
