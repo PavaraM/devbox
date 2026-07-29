@@ -119,6 +119,20 @@ graph TB
 curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/v2/bootstrap.sh | sh
 ```
 
+> **Security Note:** The examples above use the **mutable `v2` branch**, which
+> can be force-pushed. For production, **pin to an immutable release tag**
+> (e.g., `v2.0.0`). This applies to `bootstrap.sh` **and** the `devbox.sh` and
+> `lib/*.sh` files it fetches — the entire chain must use the same pinned ref.
+>
+> **Recommended verification:**
+> 1. Download: `curl -fsSL -O https://github.com/PavaraM/devbox/raw/v2.0.0/bootstrap.sh`
+> 2. Review: `less bootstrap.sh`
+> 3. Verify checksums: `curl -fsSL https://github.com/PavaraM/devbox/releases/download/v2.0.0/SHA256SUMS | sha256sum -c --ignore-missing`
+> 4. Execute: `sh bootstrap.sh`
+>
+> The same tag pins `bootstrap.sh`, `devbox.sh`, and all `lib/*.sh` to a
+> single immutable snapshot, so no code is fetched from a moving target.
+
 With a profile:
 
 ```bash
