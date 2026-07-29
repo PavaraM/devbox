@@ -91,6 +91,9 @@ distro_init() {
             ;;
     esac
 
+    export DISTRO_ID DISTRO_NAME DISTRO_VERSION DISTRO_CODENAME DISTRO_FAMILY
+    export PKG_MGR SVC_MGR FIREWALL_TOOL
+
     log DEBUG "Detected: $DISTRO_NAME (family=$DISTRO_FAMILY, pkg=$PKG_MGR, svc=$SVC_MGR, fw=$FIREWALL_TOOL)"
     return 0
 }

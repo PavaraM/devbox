@@ -24,6 +24,7 @@ set -euo pipefail
 # 17 - Deploy user setup failure
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export SCRIPT_DIR
 readonly TIMESTAMP=$(date '+%Y-%m-%d')
 readonly START_TIME=$(date +%s%3N)
 # Load logging first (required for other operations)
@@ -266,7 +267,7 @@ invalid_argument() {
 COMMAND=""
 INSTALL_DOCKER=false
 OPEN_CONFIG=false
-DRY_RUN=false
+export DRY_RUN=false
 HARDEN=false
 SETUP_USER=""
 declare -a CLI_PROFILES=()

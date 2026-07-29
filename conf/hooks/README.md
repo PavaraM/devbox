@@ -17,5 +17,16 @@ Lifecycle Phases:
 
 Naming convention: NN-name.sh (e.g., 10-preflight.sh, 20-notify.sh)
 
-Scripts receive no arguments and run with the same environment as devbox.sh
-(SCRIPT_DIR, DISTRO_NAME, etc. are available).
+Scripts receive no arguments and inherit the following exported environment
+variables:
+
+  DISTRO_ID       Distribution ID (e.g., ubuntu, fedora, alpine)
+  DISTRO_NAME     Pretty name (e.g., Ubuntu 24.04 LTS)
+  DISTRO_VERSION  Version string (e.g., 24.04)
+  DISTRO_CODENAME  Distribution codename (e.g., noble, may vary by distro)
+  DISTRO_FAMILY   Normalized family: debian, rhel, arch, alpine, suse
+  PKG_MGR         Detected package manager (apt, dnf, pacman, apk, zypper)
+  SVC_MGR         Service manager (systemctl, rc-service)
+  FIREWALL_TOOL   Firewall tool (ufw, firewalld-cmd, nft, iptables)
+  SCRIPT_DIR      Absolute path to the DevBox installation directory
+  DRY_RUN         Set to "true" if --dry-run was passed (empty otherwise)
