@@ -72,6 +72,7 @@ Commands:
   install       Set up development environment with essential packages
   doctor        Run diagnostic checks on the environment
   distro        Display detected operating system information
+  profiles      List available installation profiles
   --config      Open custom package config in editor
   --help        Display this help message
 
@@ -110,7 +111,7 @@ fi
 # ============================================================================
 
 # Ensure library scripts are executable
-for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.sh; do
+for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.sh config.sh profiles.sh; do
     lib_path="$SCRIPT_DIR/lib/$lib"
     log DEBUG "Checking library: $lib_path"
     if [[ ! -f "$lib_path" ]]; then
@@ -123,7 +124,7 @@ for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.
 done
 
 # Load remaining libraries
-for lib in pkgmap.sh packages.sh docker.sh reporting.sh diagnostics.sh security.sh; do
+for lib in pkgmap.sh packages.sh docker.sh reporting.sh diagnostics.sh security.sh config.sh profiles.sh; do
     if source "$SCRIPT_DIR/lib/$lib" &>> "${logfile:-/dev/null}"; then
         log INFO "\"lib/$lib\" loaded successfully"
     else
@@ -131,6 +132,9 @@ for lib in pkgmap.sh packages.sh docker.sh reporting.sh diagnostics.sh security.
         exit 4
     fi
 done
+# Load configuration hierarchy
+config_load
+
 # ============================================================================
 # FUNCTIONS
 # ============================================================================
@@ -210,11 +214,12 @@ OPEN_CONFIG=false
 DRY_RUN=false
 HARDEN=false
 SETUP_USER=""
+declare -a CLI_PROFILES=()
 
 # Parse all arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        install|doctor|distro)
+        install|doctor|distro|profiles)
             if [[ -n "$COMMAND" ]]; then
                 echo "Error: Multiple commands specified" >&2
                 exit 3
@@ -251,6 +256,14 @@ while [[ $# -gt 0 ]]; do
         --config)
             OPEN_CONFIG=true
         ;;
+        --profile)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --profile requires a profile name" >&2
+                exit 3
+            fi
+            CLI_PROFILES+=("$2")
+            shift
+        ;;
         *)
             invalid_argument "$1"
         ;;
@@ -270,6 +283,19 @@ if [[ -z "$COMMAND" ]]; then
     echo "Error: No command specified" >&2
     echo "Use --help for usage information" >&2
     exit 2
+fi
+
+# Load profiles (CLI profiles override config profiles)
+for p in "${CLI_PROFILES[@]}"; do
+    if ! profile_load "$p"; then
+        echo "Error: Profile '$p' not found. Use 'profiles' command to list available profiles." >&2
+        exit 3
+    fi
+done
+if [[ ${#CLI_PROFILES[@]} -eq 0 ]]; then
+    for p in $(config_get_profiles); do
+        profile_load "$p" || true
+    done
 fi
 
 # Validate install-specific flags
@@ -315,12 +341,17 @@ case "$COMMAND" in
         echo "Firewall:   $FIREWALL_TOOL"
         exit 0
     ;;
+    profiles)
+        profile_list
+    ;;
     install)
         run_install
-        if [[ "$INSTALL_DOCKER" == true ]]; then
+        profile_apply
+        profile_apply_extra
+        if [[ "$INSTALL_DOCKER" == true ]] || profile_wants_docker; then
             setup_docker
         fi
-        if [[ "$HARDEN" == true ]]; then
+        if [[ "$HARDEN" == true ]] || profile_wants_harden; then
             if ! ssh_harden; then
                 log ERROR "SSH hardening failed"
                 exit 15
@@ -330,8 +361,9 @@ case "$COMMAND" in
                 exit 16
             fi
         fi
-        if [[ -n "$SETUP_USER" ]]; then
-            if ! setup_deploy_user "$SETUP_USER"; then
+        local deploy_user="${SETUP_USER:-$(profile_deploy_user)}"
+        if [[ -n "$deploy_user" ]]; then
+            if ! setup_deploy_user "$deploy_user"; then
                 log ERROR "Deploy user setup failed"
                 exit 17
             fi
