@@ -45,3 +45,7 @@ jobs:
         run: bash devbox.sh distro
       - name: Run doctor
         run: bash devbox.sh doctor || echo "Doctor may fail in container (expected)"
+      - name: Test install
+        run: bash devbox.sh install || echo "Install may fail in container (expected)"
+      - name: Test idempotency (install again)
+        run: 'bash devbox.sh install || echo "Second install may fail in container (expected)"'

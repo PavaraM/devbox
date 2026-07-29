@@ -439,6 +439,7 @@ grep ERROR logs/devbox_*.log
 - [ ] Fresh Ubuntu 22.04 install
 - [ ] Fresh Ubuntu 24.04 install
 - [ ] Install command works
+- [ ] Idempotency — run `install` twice; second run must exit 0 with no modifications
 - [ ] Install with Docker works
 - [ ] Doctor command works
 - [ ] Error handling works correctly
@@ -447,8 +448,6 @@ grep ERROR logs/devbox_*.log
 - [ ] Help text is accurate
 
 ### Edge Cases to Test
-
-- Run `install` twice (idempotency)
 - Run with no internet connection
 - Run with insufficient disk space
 - Run as non-root (should fail gracefully)

@@ -119,6 +119,12 @@ graph TB
 curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/v2/bootstrap.sh | sh
 ```
 
+> **Security Note:** Piping `curl` to `sh` is convenient but carries trust
+> implications. Before running, review the bootstrap script at:
+> https://github.com/PavaraM/devbox/blob/v2/bootstrap.sh
+> For production environments, download and verify the script's checksum
+> against the release signatures before execution.
+
 With a profile:
 
 ```bash
