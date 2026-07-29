@@ -1,3 +1,4 @@
+#!/bin/bash
 # lib/reporting.sh
 # Reporting library for devbox diagnostics
 

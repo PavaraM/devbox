@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
-# DevBox v1.2.0 - Development Environment Setup Script
-# Author: Pavara Mirihagalla | License: MIT | Updated: 2026-06-25
+# DevBox v2.0 - Development Environment Setup Script
+# Author: Pavara Mirihagalla | License: MIT
 
 #exit codes:
 # 0  - Success
@@ -18,12 +18,13 @@ set -euo pipefail
 # 11 - Diagnostic check failure
 # 12 - No internet connection for diagnostics
 # 13 - Essential tool missing in diagnostics
-# 14 - apt package manager is not healthy
+# 14 - Package manager is not healthy
 # 15 - SSH hardening failure
 # 16 - Firewall configuration failure
 # 17 - Deploy user setup failure
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export SCRIPT_DIR
 readonly TIMESTAMP=$(date '+%Y-%m-%d')
 readonly START_TIME=$(date +%s%3N)
 # Load logging first (required for other operations)
@@ -32,6 +33,20 @@ if ! source "$SCRIPT_DIR/lib/logging.sh"; then
     exit 4
 fi
 logger_init
+
+# Load distro detection early (no deps)
+for lib in distro.sh; do
+    lib_path="$SCRIPT_DIR/lib/$lib"
+    if [[ -f "$lib_path" ]]; then
+        source "$lib_path"
+    fi
+done
+
+# Detect the OS distribution
+if ! distro_init; then
+    echo "Error: Unsupported Linux distribution" >&2
+    exit 4
+fi
 
 
 # ============================================================================
@@ -45,60 +60,98 @@ if [[ $# -eq 0 ]]; then
     exit 2
 fi
 
-# Allow --help without root
+# Allow --help and --version without root
 if [[ "$1" == "--help" ]]; then
     cat << EOF
-DevBox v1.2 - Development Environment Setup
+DevBox v2.0 - Multi-Distro Development Environment Setup
+
+Detected: $DISTRO_NAME
 
 Usage: $0 COMMAND [OPTIONS]
 
 Commands:
-  install       Set up development environment with essential packages
-  doctor        Run diagnostic checks on the environment
+  install (i)   Set up development environment with essential packages
+  doctor (d)    Run diagnostic checks on the environment
+  distro        Display detected operating system information
+  profiles      List available installation profiles
+  hooks         List installed lifecycle hooks
+  shell         Generate shell completion script
   --config      Open custom package config in editor
   --help        Display this help message
 
 Options:
   --plus-docker Install Docker and Docker Compose
-  --harden      Harden SSH configuration and configure UFW firewall
+  --harden      Harden SSH configuration and configure firewall
   --setup-user  Create a deploy user with SSH access and groups (requires username)
   --all, -a     Shorthand for --plus-docker --harden (can combine with --setup-user)
+  --profile P   Use a profile from conf/profiles/ (repeatable: --profile python-dev --profile node-dev)
   --dry-run     Show what would be done without making changes
+  --verbose, -v Increase log verbosity
+  --quiet, -q   Suppress non-error output
+
+Supported Distributions:
+  Debian/Ubuntu, Fedora/RHEL, Arch Linux, Alpine Linux, openSUSE
 
 Examples:
   $0 install
-  $0 install --plus-docker
-  $0 install --harden
+  $0 i --profile python-dev
   $0 install --plus-docker --harden --setup-user deploy
   $0 --all --setup-user deploy
-  $0 install --dry-run
   $0 doctor
-
-Exit Codes:
-  0  - Success
-  1  - No root permission
-  2  - No argument provided
-  3  - Invalid argument
-  4  - Library loading failure
-  5  - Package installation failure
-  6  - Docker installation failure
-  7  - Docker service failure
-  8  - Docker group setup failure
-  9  - Docker Compose installation failure
-  10 - Docker verification failure
-  11 - Diagnostic check failure
-  12 - No internet connection for diagnostics
-  13 - Essential tool missing in diagnostics
-  14 - apt package manager is not healthy
-  15 - SSH hardening failure
-  16 - Firewall configuration failure
-  17 - Deploy user setup failure
+  $0 distro
 
 EOF
     exit 0
 fi
 
-# Check for root (after --help check)
+# Allow --version without root
+if [[ "$1" == "--version" || "$1" == "-V" ]]; then
+    if [[ -f "$SCRIPT_DIR/VERSION" ]]; then
+        cat "$SCRIPT_DIR/VERSION"
+    else
+        echo "DevBox v2.0"
+    fi
+    exit 0
+fi
+
+# Check for root (after --help/--version check)
+if [[ "$1" == "shell" ]]; then
+    # shell completions don't need root — generate and exit
+    SHELL_TYPE="${2:-bash}"
+    case "$SHELL_TYPE" in
+        bash)
+            cat << 'BASH_EOF'
+_devbox_completions() {
+    local cur prev words cword
+    _init_completion || return
+    local commands="install doctor distro shell"
+    local opts="--help --version --config --plus-docker --harden --setup-user --all --profile --dry-run --verbose --quiet"
+    if [[ $cword -eq 1 ]]; then
+        COMPREPLY=($(compgen -W "$commands $opts" -- "$cur"))
+    elif [[ $cword -ge 2 ]]; then
+        case "${words[1]}" in
+            install|i) COMPREPLY=($(compgen -W "--plus-docker --harden --setup-user --all --profile --dry-run" -- "$cur")) ;;
+            --profile) local profiles; profiles=$(ls "$SCRIPT_DIR/conf/profiles/"*.conf 2>/dev/null | sed 's|.*/||;s/\.conf$//'); COMPREPLY=($(compgen -W "$profiles" -- "$cur")) ;;
+        esac
+    fi
+} && complete -F _devbox_completions devbox.sh
+BASH_EOF
+        ;;
+        zsh)
+            cat << 'ZSH_EOF'
+#compdef devbox.sh
+_devbox() {
+    local -a commands
+    commands=('install:Set up' 'i:Alias' 'doctor:Diagnose' 'd:Alias' 'distro:OS info' 'shell:Completions')
+    _describe 'command' commands
+}
+ZSH_EOF
+        ;;
+        *) echo "Unsupported shell: $SHELL_TYPE (use bash or zsh)" >&2; exit 1 ;;
+    esac
+    exit 0
+fi
+
 if [[ $EUID -ne 0 ]]; then
     echo "Error: This script must be run as root" >&2
     log ERROR "Not running as root"
@@ -110,7 +163,7 @@ fi
 # ============================================================================
 
 # Ensure library scripts are executable
-for lib in packages.sh docker.sh diagnostics.sh reporting.sh security.sh; do
+for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.sh config.sh profiles.sh hooks.sh; do
     lib_path="$SCRIPT_DIR/lib/$lib"
     log DEBUG "Checking library: $lib_path"
     if [[ ! -f "$lib_path" ]]; then
@@ -123,7 +176,7 @@ for lib in packages.sh docker.sh diagnostics.sh reporting.sh security.sh; do
 done
 
 # Load remaining libraries
-for lib in packages.sh docker.sh reporting.sh diagnostics.sh security.sh; do
+for lib in pkgmap.sh packages.sh docker.sh reporting.sh diagnostics.sh security.sh config.sh profiles.sh hooks.sh; do
     if source "$SCRIPT_DIR/lib/$lib" &>> "${logfile:-/dev/null}"; then
         log INFO "\"lib/$lib\" loaded successfully"
     else
@@ -131,19 +184,23 @@ for lib in packages.sh docker.sh reporting.sh diagnostics.sh security.sh; do
         exit 4
     fi
 done
+# Load configuration hierarchy
+config_load
+
 # ============================================================================
 # FUNCTIONS
 # ============================================================================
 
 run_install() {
-    log INFO "Starting installation process"
-    apt_update
-    
+    log INFO "Starting installation process on $DISTRO_NAME"
+    hooks_run "pre-install"
+    pkg_update_system
+
     if ! main_essentials; then
         log ERROR "Failed to install essential packages"
         exit 5
     fi
-    
+
     if ! networkingtools; then
         log ERROR "Failed to install networking tools"
         exit 5
@@ -153,7 +210,8 @@ run_install() {
         log ERROR "Failed to install custom packages"
         exit 5
      fi
-    
+
+    hooks_run "post-install"
     log INFO "Installation completed successfully"
 }
 
@@ -184,12 +242,14 @@ run_doctor() {
 
 setup_docker() {
     log INFO "Starting Docker setup"
+    hooks_run "pre-docker"
     
     if ! docker_setup; then
         log ERROR "Docker setup failed"
         exit 6
     fi
     
+    hooks_run "post-docker"
     log INFO "Docker setup completed successfully"
 }
 
@@ -207,19 +267,31 @@ invalid_argument() {
 COMMAND=""
 INSTALL_DOCKER=false
 OPEN_CONFIG=false
-DRY_RUN=false
+export DRY_RUN=false
 HARDEN=false
 SETUP_USER=""
+declare -a CLI_PROFILES=()
+VERBOSE=false
+QUIET=false
 
 # Parse all arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        install|doctor)
+        install|i)
+            [[ "$1" == "i" ]] && COMMAND="install" || COMMAND="$1"
+        ;;
+        doctor|d)
+            [[ "$1" == "d" ]] && COMMAND="doctor" || COMMAND="$1"
+        ;;
+        distro|profiles|p|hooks|shell)
             if [[ -n "$COMMAND" ]]; then
                 echo "Error: Multiple commands specified" >&2
                 exit 3
             fi
-            COMMAND="$1"
+            case "$1" in
+                p) COMMAND="profiles" ;;
+                *) COMMAND="$1" ;;
+            esac
         ;;
         --all|-a)
             if [[ -z "$COMMAND" ]]; then
@@ -251,6 +323,20 @@ while [[ $# -gt 0 ]]; do
         --config)
             OPEN_CONFIG=true
         ;;
+        --profile)
+            if [[ $# -lt 2 ]]; then
+                echo "Error: --profile requires a profile name" >&2
+                exit 3
+            fi
+            CLI_PROFILES+=("$2")
+            shift
+        ;;
+        --verbose|-v)
+            VERBOSE=true
+        ;;
+        --quiet|-q)
+            QUIET=true
+        ;;
         *)
             invalid_argument "$1"
         ;;
@@ -270,6 +356,19 @@ if [[ -z "$COMMAND" ]]; then
     echo "Error: No command specified" >&2
     echo "Use --help for usage information" >&2
     exit 2
+fi
+
+# Load profiles (CLI profiles override config profiles)
+for p in "${CLI_PROFILES[@]}"; do
+    if ! profile_load "$p"; then
+        echo "Error: Profile '$p' not found. Use 'profiles' command to list available profiles." >&2
+        exit 3
+    fi
+done
+if [[ ${#CLI_PROFILES[@]} -eq 0 ]]; then
+    for p in $(config_get_profiles); do
+        profile_load "$p" || true
+    done
 fi
 
 # Validate install-specific flags
@@ -292,8 +391,8 @@ fi
 # MAIN EXECUTION
 # ============================================================================
 
-echo "DevBox v1.2"
-echo "===================="
+echo "DevBox v2.0 — $DISTRO_NAME"
+echo "=============================="
 if [[ "$DRY_RUN" == true ]]; then
     echo "*** DRY RUN MODE - No changes will be made ***"
     echo ""
@@ -301,12 +400,35 @@ fi
 log INFO "Script started with command: $COMMAND"
 
 case "$COMMAND" in
+    distro)
+        echo "DevBox v2 — Distribution Info"
+        echo "============================="
+        echo "Name:       $DISTRO_NAME"
+        echo "Family:     $DISTRO_FAMILY"
+        echo "Version:    $DISTRO_VERSION"
+        echo "Code Name:  $DISTRO_CODENAME"
+        echo "Arch:       $(uname -m)"
+        echo "Kernel:     $(uname -r)"
+        echo "Pkg Mgr:    $PKG_MGR"
+        echo "Svc Mgr:    $SVC_MGR"
+        echo "Firewall:   $FIREWALL_TOOL"
+        exit 0
+    ;;
+    profiles)
+        profile_list
+    ;;
+    hooks)
+        hooks_list
+    ;;
     install)
         run_install
-        if [[ "$INSTALL_DOCKER" == true ]]; then
+        profile_apply
+        profile_apply_extra
+        if [[ "$INSTALL_DOCKER" == true ]] || profile_wants_docker; then
             setup_docker
         fi
-        if [[ "$HARDEN" == true ]]; then
+        if [[ "$HARDEN" == true ]] || profile_wants_harden; then
+            hooks_run "pre-harden"
             if ! ssh_harden; then
                 log ERROR "SSH hardening failed"
                 exit 15
@@ -315,12 +437,16 @@ case "$COMMAND" in
                 log ERROR "Firewall configuration failed"
                 exit 16
             fi
+            hooks_run "post-harden"
         fi
-        if [[ -n "$SETUP_USER" ]]; then
-            if ! setup_deploy_user "$SETUP_USER"; then
+        deploy_user="${SETUP_USER:-$(profile_deploy_user)}"
+        if [[ -n "$deploy_user" ]]; then
+            hooks_run "pre-user"
+            if ! setup_deploy_user "$deploy_user"; then
                 log ERROR "Deploy user setup failed"
                 exit 17
             fi
+            hooks_run "post-user"
         fi
     ;;
     doctor)

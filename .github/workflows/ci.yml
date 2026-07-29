@@ -1,0 +1,47 @@
+name: DevBox CI
+on:
+  push:
+    branches: [main, v2, feat/*]
+  pull_request:
+    branches: [main, v2]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+      - name: Run shellcheck
+        run: shellcheck --severity=error devbox.sh lib/*.sh bootstrap.sh
+
+  test:
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu:latest
+          - fedora:latest
+          - archlinux:latest
+          - alpine:latest
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install bash (required for devbox)
+        run: |
+          command -v bash && exit 0
+          if command -v apk; then apk add --no-cache bash
+          elif command -v dnf; then dnf install -y bash
+          elif command -v zypper; then zypper install -y bash
+          fi
+      - name: Make scripts executable
+        run: chmod +x devbox.sh lib/*.sh
+      - name: Check distro detection
+        run: bash devbox.sh --version
+      - name: Run distro command
+        run: bash devbox.sh distro
+      - name: Run doctor
+        run: bash devbox.sh doctor || echo "Doctor may fail in container (expected)"
