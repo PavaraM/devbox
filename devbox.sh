@@ -125,7 +125,7 @@ _devbox_completions() {
     local cur prev words cword
     _init_completion || return
     local commands="install doctor distro shell"
-    local opts="--help --version --config --plus-docker --harden --setup-user --all --profile --dry-run --verbose --quiet"
+    local opts="--help --version -V --config --plus-docker --harden --setup-user --all --profile --dry-run --verbose --quiet"
     if [[ $cword -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$commands $opts" -- "$cur"))
     elif [[ $cword -ge 2 ]]; then
