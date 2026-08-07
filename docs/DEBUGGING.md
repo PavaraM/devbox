@@ -1,6 +1,6 @@
 # DevBox Debugging Guide
 
-Comprehensive troubleshooting and debugging guide for DevBox v1.2.0
+Comprehensive troubleshooting and debugging guide for DevBox v2.0
 
 ---
 
@@ -106,9 +106,17 @@ Use --help for usage information
 - `install` (or `i`)
 - `install --plus-docker`
 - `doctor` (or `d`)
-- `--harden` (v1.2.0+ — SSH hardening + UFW firewall)
-- `--setup-user <name>` (v1.2.0+ — create deploy user)
-- `--all` / `-a` (v1.2.0+ — full provisioning)
+- `distro` (show detected distribution)
+- `profiles` (list available profiles)
+- `hooks` (list hook scripts by phase)
+- `shell` (generate bash/zsh completions)
+- `--harden` (SSH hardening + firewall)
+- `--setup-user <name>` (create deploy user)
+- `--all` / `-a` (full provisioning)
+- `--dist-upgrade` (upgrade all packages; requires `install`)
+- `--resume` (skip completed install phases; requires `install`)
+- `--with-mise` (install mise + tools from `conf/tools.conf`; requires `install`)
+- `--json` (emit doctor report as JSON; requires `doctor`)
 - `--dry-run` (preview any non-readonly command)
 - `--help`
 
@@ -132,12 +140,19 @@ Error: Required library not found: /path/to/lib/packages.sh
 ls -la lib/
 
 # Expected files:
-# - diagnostics.sh
-# - docker.sh
 # - logging.sh
+# - distro.sh
+# - pkgmap.sh
 # - packages.sh
-# - reporting.sh
+# - docker.sh
 # - security.sh
+# - config.sh
+# - profiles.sh
+# - hooks.sh
+# - state.sh
+# - version-manager.sh
+# - diagnostics.sh
+# - reporting.sh
 
 # Check permissions
 ls -l lib/*.sh
@@ -166,11 +181,18 @@ chmod +x devbox.sh
 ```bash
 # Check each library loads
 bash -n lib/logging.sh      # No output = syntax OK
+bash -n lib/distro.sh
+bash -n lib/pkgmap.sh
 bash -n lib/packages.sh
 bash -n lib/docker.sh
+bash -n lib/security.sh
+bash -n lib/config.sh
+bash -n lib/profiles.sh
+bash -n lib/hooks.sh
+bash -n lib/state.sh
+bash -n lib/version-manager.sh
 bash -n lib/diagnostics.sh
 bash -n lib/reporting.sh
-bash -n lib/security.sh
 ```
 
 ---
@@ -195,9 +217,9 @@ grep "installation failed" logs/devbox_*.log
 
 **2. Check package-specific log:**
 ```bash
-cat logs/apt/apt_*-git.log
+cat logs/pkg/pkg_*-git.log
 # or
-cat logs/apt/apt_*-curl.log
+cat logs/pkg/pkg_*-curl.log
 ```
 
 **Common Causes:**
@@ -738,24 +760,30 @@ sudo ./devbox.sh install
 
 ---
 
-### Code 14: APT Not Healthy ❌
+### Code 14: Package Manager Not Healthy ❌
 ```bash
-APT package manager is not healthy
+Package manager (apt/dnf/pacman/apk/zypper) is not healthy
 ```
 
 **Cause:** Package manager issues.
 
 **Diagnostic Steps:**
 ```bash
-# Check APT
+# Check the detected package manager
+./devbox.sh distro   # shows PKG_MGR
+
+# APT
 sudo apt update
 sudo apt list --upgradable
-
-# Check locks
 sudo lsof /var/lib/dpkg/lock
-sudo lsof /var/lib/apt/lists/lock
 
-# Check broken packages
+# DNF
+sudo dnf check-update
+
+# Pacman
+sudo pacman -Sy
+
+# Check broken packages (APT)
 sudo dpkg --audit
 ```
 
@@ -778,7 +806,7 @@ sudo ./devbox.sh doctor
 
 ---
 
-### Code 15: SSH Hardening Failure ❌ (v1.2.0+)
+### Code 15: SSH Hardening Failure ❌
 ```bash
 Error: SSH hardening failed — original config restored from backup
 ```
@@ -817,7 +845,7 @@ sudo ./devbox.sh --harden
 
 ---
 
-### Code 16: Firewall Configuration Failure ❌ (v1.2.0+)
+### Code 16: Firewall Configuration Failure ❌
 ```bash
 Error: UFW configuration failed
 ```
@@ -856,7 +884,7 @@ sudo ufw disable && sudo ufw enable
 
 ---
 
-### Code 17: Deploy User Setup Failure ❌ (v1.2.0+)
+### Code 17: Deploy User Setup Failure ❌
 ```bash
 Error: Deploy user creation or configuration failed
 ```
@@ -894,6 +922,81 @@ getent group sudo
 ```bash
 # Fix the config, then re-run (script is idempotent)
 sudo ./devbox.sh --setup-user <name>
+```
+
+---
+
+### Code 18: Version Manager Setup Failure ❌ (v2.0+)
+```bash
+Error: Version manager setup failed
+```
+
+**Cause:** `install_mise()` or `mise_install_tools()` failed while running `--with-mise`.
+
+**Diagnostic Steps:**
+```bash
+# View the mise install log
+cat logs/mise-install.log
+
+# Check mise binary
+mise --version
+which mise
+
+# Verify tools.conf entries are valid tool names
+cat conf/tools.conf
+```
+
+**Common Causes:**
+
+**A. No internet during `curl -fsSL https://mise.run | sh`.**
+```bash
+curl -fsSL https://mise.run | sh   # test manually
+```
+
+**B. A version in `conf/tools.conf` doesn't exist for that tool.** Verify on https://mise.jdx.dev or use `latest`:
+```bash
+nodejs=latest
+```
+
+**C. mise binary installed but not on PATH.** It defaults to `$HOME/.local/bin/mise` — add it:
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+```
+
+**Solution:**
+```bash
+# Fix the underlying issue, then re-run
+sudo ./devbox.sh install --with-mise
+```
+
+---
+
+### Code 19: JSON Report Generation Failure ❌ (v2.0+)
+```bash
+Error: Failed to write JSON report
+```
+
+**Cause:** `write_json_report()` could not write the `.json` file next to the diagnostic `.log` report (run with `doctor --json`).
+
+**Diagnostic Steps:**
+```bash
+# Check report directory permissions
+ls -la diagnostic_reports/
+
+# Check the JSON for validity
+python3 -m json.tool diagnostic_reports/report-*.json
+
+# Look for write errors
+grep "JSON report" logs/devbox_*.log
+```
+
+**Solutions:**
+```bash
+# Fix ownership (report dir owned by root after sudo)
+sudo chown -R "$USER:$USER" diagnostic_reports/
+
+# Retry
+sudo ./devbox.sh doctor --json
 ```
 
 ---
@@ -1104,8 +1207,8 @@ tail -1 logs/devbox_$(date +%Y-%m-%d).log | grep duration
 grep "installation failed" logs/devbox_*.log
 
 # Specific package details
-cat logs/apt/apt_*-git.log
-cat logs/apt/apt_*-docker.log
+cat logs/pkg/pkg_*-git.log
+cat logs/pkg/pkg_*-docker.log
 ```
 
 ### Performance Analysis
@@ -1269,7 +1372,7 @@ git pull origin main
 
 ---
 
-## Security Issues (v1.2.0+)
+## Security Issues
 
 ### Issue: Locked out after `--harden`
 
@@ -1338,5 +1441,5 @@ sudo ./devbox.sh --setup-user <name>   # if user setup failed
 ---
 
 **Last Updated**: 2026-06-26
-**DevBox Version**: 1.2.0
+**DevBox Version**: 2.0.0
 **Author**: Pavara Mirihagalla

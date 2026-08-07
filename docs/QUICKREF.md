@@ -20,8 +20,17 @@ sudo ./devbox.sh install
 # Installation with Docker
 sudo ./devbox.sh install --plus-docker
 
+# Installation with a profile
+sudo ./devbox.sh install --profile python-dev
+
+# Install + harden + deploy user
+sudo ./devbox.sh --all
+
 # Run diagnostics
 sudo ./devbox.sh doctor
+
+# Diagnostics as JSON (CI-friendly)
+sudo ./devbox.sh doctor --json
 
 # Show help
 ./devbox.sh --help
@@ -35,10 +44,20 @@ sudo ./devbox.sh doctor
 |---------|-------------|---------|
 | `install` | Install development tools | `sudo ./devbox.sh install` |
 | `install --plus-docker` | Install tools + Docker | `sudo ./devbox.sh install --plus-docker` |
+| `install --profile <name>` | Apply a profile from `conf/profiles/` | `sudo ./devbox.sh install --profile full` |
+| `install --resume` | Skip phases already completed (state in `/var/lib/devbox`) | `sudo ./devbox.sh install --resume` |
+| `install --dist-upgrade` | Upgrade all packages (default: update lists only) | `sudo ./devbox.sh install --dist-upgrade` |
+| `install --with-mise` | Install mise + tools from `conf/tools.conf` | `sudo ./devbox.sh install --with-mise` |
 | `doctor` | Run system diagnostics | `sudo ./devbox.sh doctor` |
-| `--harden` | SSH hardening + UFW firewall (v1.2.0) | `sudo ./devbox.sh --harden` |
-| `--setup-user <name>` | Create deploy user with SSH keys + sudo (v1.2.0) | `sudo ./devbox.sh --setup-user deploy` |
-| `--all` / `-a` | Full provisioning: install + harden + setup-user (v1.2.0) | `sudo ./devbox.sh --all` |
+| `doctor --json` | Emit diagnostics as a JSON report | `sudo ./devbox.sh doctor --json` |
+| `distro` | Show detected distribution details | `./devbox.sh distro` |
+| `profiles` | List available profiles | `./devbox.sh profiles` |
+| `hooks` | List available hook scripts by phase | `./devbox.sh hooks` |
+| `shell` | Generate bash/zsh completions | `./devbox.sh shell bash` |
+| `--harden` | SSH hardening + firewall (UFW/firewalld/nft/iptables) | `sudo ./devbox.sh --harden` |
+| `--setup-user <name>` | Create deploy user with SSH keys + sudo | `sudo ./devbox.sh --setup-user deploy` |
+| `--all` / `-a` | Full provisioning: install + harden + setup-user | `sudo ./devbox.sh --all` |
+| `--config` | Open the distro-appropriate package config | `sudo ./devbox.sh --config` |
 | `--dry-run` | Preview changes without applying | `sudo ./devbox.sh --harden --dry-run` |
 | `--help` | Display help message | `./devbox.sh --help` |
 
@@ -49,17 +68,21 @@ sudo ./devbox.sh doctor
 ## Installed Packages
 
 ### Core Tools (install)
-- **Version Control**: git-all
+- **Version Control**: git
 - **Network**: curl, wget, net-tools, ca-certificates
 - **Utilities**: htop, tmux, tree, unzip
-- **Development**: neovim, build-essential
+- **Development**: vim, build-essential *(vim maps to neovim on Debian/Arch/Alpine, vim-enhanced on RHEL)*
 - **Networking**: ufw, iproute2, dnsutils, nmap
 
 ### Docker (install --plus-docker)
 - Docker Engine (latest)
-- Docker Compose plugin (v2.24.5)
+- Docker Compose plugin (v2.27.0)
 - Docker service (auto-start)
 - User group permissions
+
+### Version Manager (install --with-mise)
+- mise runtime manager (via `https://mise.run`)
+- Tools pinned in `conf/tools.conf` (e.g. `nodejs=20.0.0`)
 
 ---
 
@@ -81,10 +104,12 @@ sudo ./devbox.sh doctor
 | 11 | Diagnostic failure | Run `doctor` |
 | 12 | No internet | Check connection |
 | 13 | Tool missing | Run `install` |
-| 14 | APT unhealthy | Fix package manager |
+| 14 | Package manager not healthy | Fix package manager |
 | 15 | SSH hardening failure | Check `conf/security.conf` and `sshd -t` |
-| 16 | Firewall configuration failure | Check `ufw status` and `conf/security.conf` |
+| 16 | Firewall configuration failure | Check firewall status and `conf/security.conf` |
 | 17 | Deploy user setup failure | Check `conf/security.conf` and username uniqueness |
+| 18 | Version manager setup failure | Check `logs/mise-install.log` and `conf/tools.conf` |
+| 19 | JSON report generation failure | Check `--json` output and permissions |
 
 **Check exit code:**
 ```bash
@@ -111,11 +136,11 @@ grep ERROR logs/devbox_*.log
 ### Package Logs
 ```bash
 # View specific package
-cat logs/apt/apt_*-git.log
-cat logs/apt/apt_*-docker.log
+cat logs/pkg/pkg_*-git.log
+cat logs/pkg/pkg_*-docker.log
 
 # All package logs
-ls -la logs/apt/
+ls -la logs/pkg/
 ```
 
 ### Diagnostic Reports
@@ -134,7 +159,7 @@ ls -la diagnostic_reports/
 ```bash
 # View archives
 ls -la logs/archive/
-ls -la logs/archive/apt/
+ls -la logs/archive/pkg/
 
 # Access archived log
 cat logs/archive/devbox_2026-02-13.log
@@ -233,7 +258,7 @@ sudo ./devbox.sh doctor
 ### Package Installation Failed
 ```bash
 # Check specific package log
-cat logs/apt/apt_*-packagename.log
+cat logs/pkg/pkg_*-packagename.log
 
 # Update package lists
 sudo apt update
@@ -652,13 +677,13 @@ ss -tulpn
 | Not root | `sudo ./devbox.sh install` |
 | Library not found | `chmod +x lib/*.sh` |
 | Docker permission denied | `newgrp docker` or logout/login |
-| Package install failed | Check `logs/apt/apt_*.log` |
+| Package install failed | Check `logs/pkg/pkg_*.log` |
 | Logs unreadable | Already fixed automatically |
 | Docker won't start | `sudo systemctl start docker` |
 | Internet offline | Check network connection |
 | APT locked | Wait or remove `/var/lib/dpkg/lock` |
 | Disk full | Clean with `sudo apt clean` |
-| Locked out after `--harden` | Open the port in UFW out-of-band; see `docs/DEBUGGING.md` |
+| Locked out after `--harden` | Open the port in the firewall out-of-band; see `docs/DEBUGGING.md` |
 | Deploy user missing sudo | Check `/etc/sudoers.d/<user>` and `DEPLOY_SUDO_NOPASSWD` in `security.conf` |
 | SSH host key warning | `ssh-keygen -R <host>` on the client |
 
@@ -666,7 +691,7 @@ ss -tulpn
 
 ## Version Info
 
-**DevBox Version**: 1.2.0
+**DevBox Version**: 2.0.0
 **Release Date**: 2026-06-25
 **License**: MIT
 **Author**: Pavara Mirihagalla
