@@ -59,9 +59,11 @@ sudo ./devbox.sh doctor --json
 | `--all` / `-a` | Full provisioning: install + harden + setup-user | `sudo ./devbox.sh --all` |
 | `--config` | Open the distro-appropriate package config | `sudo ./devbox.sh --config` |
 | `--dry-run` | Preview changes without applying | `sudo ./devbox.sh --harden --dry-run` |
+| `--verbose` / `-v` | Increase log verbosity to DEBUG | `sudo ./devbox.sh install -v` |
+| `--quiet` / `-q` | Suppress non-error console output | `sudo ./devbox.sh install -q` |
 | `--help` | Display help message | `./devbox.sh --help` |
 
-**Compose any command with `--dry-run`** to preview what a command would change without actually changing anything.
+**Compose any command with `--dry-run`** to preview what a command would change without actually changing anything. **`--verbose`** enables DEBUG-level logs; **`--quiet`** silences console output (errors still shown).
 
 ---
 

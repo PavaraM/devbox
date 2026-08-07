@@ -128,6 +128,13 @@ log WARN "Internet connectivity unavailable"
 2026-02-14 01:45:39 [WARN] Internet connectivity unavailable
 ```
 
+**CLI Verbosity Flags:**
+
+- `--verbose` / `-v` — sets `MIN_LOG_LEVEL=DEBUG`, enabling DEBUG-level output
+- `--quiet` / `-q` — sets `SHOW_CONSOLE=false`, suppressing non-error console output (errors still shown; file logging unchanged)
+
+These flags are applied after argument parsing, so they affect all logging during the requested command.
+
 #### `logger_init()`
 
 Initialize the logger: creates directories, archives old logs, opens the log file. Called from `devbox.sh` before any other library loads.
