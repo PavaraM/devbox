@@ -351,8 +351,15 @@ done
 
 # Open config and exit when no command is requested
 if [[ "$OPEN_CONFIG" == true && -z "$COMMAND" ]]; then
-    nano "$SCRIPT_DIR/conf/pkg.conf"
-    log INFO "Opened pkg.conf for editing"
+    conf_target=""
+    case "${DISTRO_FAMILY:-}" in
+        debian) conf_target="$SCRIPT_DIR/conf/apt-packages.conf" ;;
+        rhel)   conf_target="$SCRIPT_DIR/conf/dnf-packages.conf" ;;
+        *)      conf_target="$SCRIPT_DIR/conf/pkg.conf" ;;
+    esac
+    [[ -f "$conf_target" ]] || conf_target="$SCRIPT_DIR/conf/pkg.conf"
+    nano "$conf_target"
+    log INFO "Opened $(basename "$conf_target") for editing"
     exit 0
 fi
 
