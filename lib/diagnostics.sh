@@ -100,12 +100,14 @@ toolchain_verification() {
 
 custom_packages_check() {
     report DEBUG "Checking custom packages..."
-    if [[ -f "$SCRIPT_DIR/conf/pkg.conf" ]]; then
+    if declare -F custom_packages_conf >/dev/null 2>&1; then
+        custom_packages_conf
+    elif [[ -f "$SCRIPT_DIR/conf/pkg.conf" ]]; then
         source "$SCRIPT_DIR/conf/pkg.conf"
     fi
 
     if [[ ${#CUSTOM_PACKAGES[@]} -eq 0 ]]; then
-        report INFO "No custom packages defined in pkg.conf"
+        report INFO "No custom packages defined in package config"
         passed=$((passed + 1))
         return 0
     fi

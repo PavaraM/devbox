@@ -107,11 +107,24 @@ networkingtools() {
     _install_group "networking tools" "${packages[@]}"
 }
 
-custom_packages() {
-    log DEBUG "Checking for custom packages from \"$SCRIPT_DIR/conf/pkg.conf\"..."
-    if [[ -f "$SCRIPT_DIR/conf/pkg.conf" ]]; then
-        source "$SCRIPT_DIR/conf/pkg.conf"
+custom_packages_conf() {
+    local conf=""
+    case "${DISTRO_FAMILY:-}" in
+        debian) conf="$SCRIPT_DIR/conf/apt-packages.conf" ;;
+        rhel)   conf="$SCRIPT_DIR/conf/dnf-packages.conf" ;;
+    esac
+    if [[ -z "$conf" || ! -f "$conf" ]]; then
+        conf="$SCRIPT_DIR/conf/pkg.conf"
     fi
+    if [[ -f "$conf" ]]; then
+        log DEBUG "Loading custom packages from \"$conf\""
+        source "$conf"
+    fi
+}
+
+custom_packages() {
+    log DEBUG "Checking for custom packages from conf/..."
+    custom_packages_conf
 
     if [[ ${#CUSTOM_PACKAGES[@]} -eq 0 ]]; then
         log INFO "No custom packages to install"
