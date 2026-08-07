@@ -3,6 +3,7 @@
 # Reporting library for devbox diagnostics
 
 reportfile=""
+JSON_ENTRIES=()
 
 archive_old_reports() {
     log DEBUG "Archiving old diagnostic reports"
@@ -34,5 +35,52 @@ report() {
     log "$report_level" "$message"
     echo "[$report_level] $message" >> "$reportfile"
     echo "$message"
+    if [[ "${JSON_REPORT:-false}" == true ]]; then
+        local escaped=${message//\\/\\\\}
+        escaped=${escaped//\"/\\\"}
+        JSON_ENTRIES+=("{\"level\":\"$report_level\",\"message\":\"$escaped\"}")
+    fi
+}
 
+write_json_report() {
+    local json_file="${reportfile%.log}.json"
+    local total_checks=7
+    local status="FAILED"
+    if [[ "$passed" -eq "$total_checks" && "$total_checks" -gt 0 ]]; then
+        status="PASSED"
+    fi
+
+    {
+        echo "{"
+        echo "  \"report_type\": \"diagnostic\","
+        echo "  \"generated_at\": \"$(date '+%Y-%m-%d %H:%M:%S')\","
+        echo "  \"distro\": {"
+        echo "    \"name\": \"${DISTRO_NAME:-}\","
+        echo "    \"family\": \"${DISTRO_FAMILY:-}\","
+        echo "    \"version\": \"${DISTRO_VERSION:-}\","
+        echo "    \"package_manager\": \"${PKG_MGR:-}\","
+        echo "    \"service_manager\": \"${SVC_MGR:-}\","
+        echo "    \"firewall_tool\": \"${FIREWALL_TOOL:-}\""
+        echo "  },"
+        echo "  \"summary\": {"
+        echo "    \"status\": \"$status\","
+        echo "    \"checks_passed\": $passed,"
+        echo "    \"checks_total\": $total_checks"
+        echo "  },"
+        echo "  \"checks\": ["
+        local first=true
+        for entry in "${JSON_ENTRIES[@]}"; do
+            if [[ "$first" == true ]]; then
+                first=false
+                printf '    %s' "$entry"
+            else
+                printf ',\n    %s' "$entry"
+            fi
+        done
+        echo ""
+        echo "  ]"
+        echo "}"
+    } > "$json_file"
+
+    log INFO "JSON diagnostic report saved to $json_file"
 }

@@ -23,6 +23,7 @@ set -euo pipefail
 # 16 - Firewall configuration failure
 # 17 - Deploy user setup failure
 # 18 - Version manager setup failure
+# 19 - JSON report generation failure
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export SCRIPT_DIR
@@ -89,6 +90,7 @@ Options:
   --dist-upgrade Upgrade all packages (default: update package lists only)
   --resume      Skip steps already completed (from /var/lib/devbox state)
   --with-mise   Install mise and tools listed in conf/tools.conf
+  --json        Emit doctor report as JSON (report-<timestamp>.json)
   --dry-run     Show what would be done without making changes
   --verbose, -v Increase log verbosity
   --quiet, -q   Suppress non-error output
@@ -129,12 +131,13 @@ _devbox_completions() {
     local cur prev words cword
     _init_completion || return
     local commands="install doctor distro shell"
-    local opts="--help --version -V --config --plus-docker --harden --setup-user --all --profile --dist-upgrade --resume --with-mise --dry-run --verbose --quiet"
+    local opts="--help --version -V --config --plus-docker --harden --setup-user --all --profile --dist-upgrade --resume --with-mise --json --dry-run --verbose --quiet"
     if [[ $cword -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$commands $opts" -- "$cur"))
     elif [[ $cword -ge 2 ]]; then
         case "${words[1]}" in
             install|i) COMPREPLY=($(compgen -W "--plus-docker --harden --setup-user --all --profile --dist-upgrade --resume --with-mise --dry-run" -- "$cur")) ;;
+            doctor|d) COMPREPLY=($(compgen -W "--json" -- "$cur")) ;;
             --profile) local profiles; profiles=$(ls "$SCRIPT_DIR/conf/profiles/"*.conf 2>/dev/null | sed 's|.*/||;s/\.conf$//'); COMPREPLY=($(compgen -W "$profiles" -- "$cur")) ;;
         esac
     fi
@@ -277,6 +280,7 @@ SETUP_USER=""
 DIST_UPGRADE=false
 RESUME=false
 WITH_MISE=false
+JSON_REPORT=false
 declare -a CLI_PROFILES=()
 VERBOSE=false
 QUIET=false
@@ -335,6 +339,9 @@ while [[ $# -gt 0 ]]; do
         ;;
         --with-mise)
             WITH_MISE=true
+        ;;
+        --json)
+            JSON_REPORT=true
         ;;
         --config)
             OPEN_CONFIG=true
@@ -420,6 +427,12 @@ if [[ "$COMMAND" != "install" ]]; then
         echo "Error: --with-mise requires the install command" >&2
         exit 3
     fi
+fi
+
+# Validate doctor-specific flags
+if [[ "$JSON_REPORT" == true && "$COMMAND" != "doctor" ]]; then
+    echo "Error: --json requires the doctor command" >&2
+    exit 3
 fi
 
 # ============================================================================
@@ -532,6 +545,12 @@ case "$COMMAND" in
         run_doctor
         report_summary >> "$reportfile"
         report_summary >> "$logfile"
+        if [[ "$JSON_REPORT" == true ]]; then
+            if ! write_json_report; then
+                log ERROR "Failed to write JSON report"
+                exit 19
+            fi
+        fi
     ;;
 esac
 
