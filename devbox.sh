@@ -22,6 +22,7 @@ set -euo pipefail
 # 15 - SSH hardening failure
 # 16 - Firewall configuration failure
 # 17 - Deploy user setup failure
+# 18 - Version manager setup failure
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export SCRIPT_DIR
@@ -87,6 +88,7 @@ Options:
   --profile P   Use a profile from conf/profiles/ (repeatable: --profile python-dev --profile node-dev)
   --dist-upgrade Upgrade all packages (default: update package lists only)
   --resume      Skip steps already completed (from /var/lib/devbox state)
+  --with-mise   Install mise and tools listed in conf/tools.conf
   --dry-run     Show what would be done without making changes
   --verbose, -v Increase log verbosity
   --quiet, -q   Suppress non-error output
@@ -127,12 +129,12 @@ _devbox_completions() {
     local cur prev words cword
     _init_completion || return
     local commands="install doctor distro shell"
-    local opts="--help --version -V --config --plus-docker --harden --setup-user --all --profile --dist-upgrade --resume --dry-run --verbose --quiet"
+    local opts="--help --version -V --config --plus-docker --harden --setup-user --all --profile --dist-upgrade --resume --with-mise --dry-run --verbose --quiet"
     if [[ $cword -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$commands $opts" -- "$cur"))
     elif [[ $cword -ge 2 ]]; then
         case "${words[1]}" in
-            install|i) COMPREPLY=($(compgen -W "--plus-docker --harden --setup-user --all --profile --dist-upgrade --resume --dry-run" -- "$cur")) ;;
+            install|i) COMPREPLY=($(compgen -W "--plus-docker --harden --setup-user --all --profile --dist-upgrade --resume --with-mise --dry-run" -- "$cur")) ;;
             --profile) local profiles; profiles=$(ls "$SCRIPT_DIR/conf/profiles/"*.conf 2>/dev/null | sed 's|.*/||;s/\.conf$//'); COMPREPLY=($(compgen -W "$profiles" -- "$cur")) ;;
         esac
     fi
@@ -165,7 +167,7 @@ fi
 # ============================================================================
 
 # Ensure library scripts are executable
-for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.sh config.sh profiles.sh hooks.sh state.sh; do
+for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.sh config.sh profiles.sh hooks.sh state.sh version-manager.sh; do
     lib_path="$SCRIPT_DIR/lib/$lib"
     log DEBUG "Checking library: $lib_path"
     if [[ ! -f "$lib_path" ]]; then
@@ -178,7 +180,7 @@ for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.
 done
 
 # Load remaining libraries
-for lib in pkgmap.sh packages.sh docker.sh reporting.sh diagnostics.sh security.sh config.sh profiles.sh hooks.sh state.sh; do
+for lib in pkgmap.sh packages.sh docker.sh reporting.sh diagnostics.sh security.sh config.sh profiles.sh hooks.sh state.sh version-manager.sh; do
     if source "$SCRIPT_DIR/lib/$lib" &>> "${logfile:-/dev/null}"; then
         log INFO "\"lib/$lib\" loaded successfully"
     else
@@ -274,6 +276,7 @@ HARDEN=false
 SETUP_USER=""
 DIST_UPGRADE=false
 RESUME=false
+WITH_MISE=false
 declare -a CLI_PROFILES=()
 VERBOSE=false
 QUIET=false
@@ -329,6 +332,9 @@ while [[ $# -gt 0 ]]; do
         ;;
         --resume)
             RESUME=true
+        ;;
+        --with-mise)
+            WITH_MISE=true
         ;;
         --config)
             OPEN_CONFIG=true
@@ -410,6 +416,10 @@ if [[ "$COMMAND" != "install" ]]; then
         echo "Error: --resume requires the install command" >&2
         exit 3
     fi
+    if [[ "$WITH_MISE" == true ]]; then
+        echo "Error: --with-mise requires the install command" >&2
+        exit 3
+    fi
 fi
 
 # ============================================================================
@@ -457,6 +467,19 @@ case "$COMMAND" in
             profile_apply_extra
             if [[ "$RESUME" == true ]]; then
                 state_mark "packages"
+            fi
+        fi
+        if [[ "$WITH_MISE" == true ]]; then
+            if [[ "$RESUME" == true ]] && state_done "version-manager"; then
+                log INFO "Resume: version manager already set up, skipping"
+            else
+                if ! setup_version_manager; then
+                    log ERROR "Version manager setup failed"
+                    exit 18
+                fi
+                if [[ "$RESUME" == true ]]; then
+                    state_mark "version-manager"
+                fi
             fi
         fi
         if [[ "$INSTALL_DOCKER" == true ]] || profile_wants_docker; then
