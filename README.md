@@ -117,6 +117,7 @@ graph TB
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/PavaraM/devbox/main/bootstrap.sh | sh
+#or
 wget -qO- https://raw.githubusercontent.com/PavaraM/devbox/main/bootstrap.sh | sh
 ```
 
