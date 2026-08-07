@@ -70,7 +70,7 @@ What should happen
 What actually happened
 
 **Environment:**
-- DevBox version: 1.2.0
+- DevBox version: 2.0.0
 - OS: Ubuntu 24.04
 - Kernel: 6.17.0
 
@@ -105,7 +105,7 @@ Enhancement suggestions are welcome! Please include:
 
 ### Prerequisites
 
-- Ubuntu 20.04+ or Debian-based system
+- One of the supported distributions: Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE, Alpine
 - Bash 4.0+
 - Root/sudo access for testing
 - Git
@@ -126,7 +126,7 @@ git remote add upstream https://github.com/PavaraM/devbox.git
 git checkout -b feature/your-feature-name
 
 # 5. Make the script executable
-chmod +x devbox.sh lib/*.sh
+chmod +x devbox.sh bootstrap.sh lib/*.sh conf/hooks/*/*.sh
 
 # 6. Test your changes
 sudo ./devbox.sh install
@@ -138,10 +138,13 @@ sudo ./devbox.sh doctor
 Recommended: Use a VM or container for testing to avoid affecting your main system.
 
 ```bash
-# Using Docker for testing
+# Using Docker for testing (the project's CI runs the same matrix)
 docker run -it --rm ubuntu:24.04 bash
+docker run -it --rm fedora:latest bash
+docker run -it --rm archlinux:latest bash
+docker run -it --rm alpine:latest bash
 
-# Or use a VM with Ubuntu
+# Or use a VM with your target distribution
 ```
 
 ---
@@ -245,6 +248,7 @@ Use appropriate exit codes:
 | 1-10 | Core errors |
 | 11-14 | Diagnostic errors |
 | 15-17 | Security errors (SSH, firewall, deploy user) |
+| 18-19 | v2 feature errors (version manager, JSON report) |
 | 20-29 | Custom module errors (use for new features) |
 
 ```bash
@@ -262,7 +266,7 @@ my_new_function() {
 ### File Organization
 
 - Place new library functions in appropriate `lib/*.sh` files
-- Library files are: `logging.sh`, `packages.sh`, `docker.sh`, `diagnostics.sh`, `reporting.sh`, **`security.sh`** (v1.2.0+)
+- Library files are: `logging.sh`, `distro.sh`, `pkgmap.sh`, `packages.sh`, `docker.sh`, `security.sh`, `config.sh`, `profiles.sh`, `hooks.sh`, `state.sh`, `version-manager.sh`, `diagnostics.sh`, `reporting.sh`
 - Keep `devbox.sh` focused on orchestration
 - Configuration goes in `conf/*.conf`, not inline
 - Document new exit codes in help text and README
@@ -331,28 +335,32 @@ custom package installation.
 
 1. **Test your changes thoroughly**
    ```bash
-   # Test on fresh Ubuntu 22.04
-   # Test on fresh Ubuntu 24.04
+   # Test on a fresh target distribution (CI runs ubuntu/fedora/archlinux/alpine)
    sudo ./devbox.sh install
    sudo ./devbox.sh install --plus-docker
+   sudo ./devbox.sh install --profile python-dev
+   sudo ./devbox.sh install --resume --dist-upgrade
    sudo ./devbox.sh doctor
+   sudo ./devbox.sh doctor --json
    ```
 
 2. **Check for errors**
    ```bash
    # Run shellcheck (if available)
-   shellcheck devbox.sh lib/*.sh
-   
+   shellcheck --severity=error devbox.sh bootstrap.sh lib/*.sh tests/*.sh
+
    # Check syntax
    bash -n devbox.sh
+   bash -n bootstrap.sh
    bash -n lib/*.sh
+   bash -n tests/*.sh
    ```
 
 3. **Update documentation**
    - Update README.md if adding features
    - Update API.md if changing APIs
    - Update exit codes if adding new ones
-   - Add entry to CHANGELOG.md
+   - Update QUICKREF.md, DEBUGGING.md, FILE_STRUCTURE.md as applicable
 
 4. **Verify logs**
    ```bash
@@ -385,18 +393,17 @@ Brief description of changes
 - [ ] Refactoring
 
 ## Testing
-- [ ] Tested on Ubuntu 22.04
-- [ ] Tested on Ubuntu 24.04
+- [ ] Tested on a supported distribution
 - [ ] Tested install command
 - [ ] Tested doctor command
 - [ ] Tested with Docker option
+- [ ] Tested with profiles (--profile)
 - [ ] Verified logs
 
 ## Checklist
 - [ ] Code follows project style guidelines
 - [ ] Added appropriate log messages
-- [ ] Updated documentation
-- [ ] Added to CHANGELOG.md
+- [ ] Updated documentation (README, API, DEBUGGING, QUICKREF, FILE_STRUCTURE)
 - [ ] No shellcheck warnings
 - [ ] All tests pass
 
@@ -423,8 +430,15 @@ sudo ./devbox.sh install
 # Test Docker installation
 sudo ./devbox.sh install --plus-docker
 
+# Test profiles
+sudo ./devbox.sh install --profile python-dev --profile node-dev
+
 # Test diagnostics
 sudo ./devbox.sh doctor
+sudo ./devbox.sh doctor --json
+
+# Test resume
+sudo ./devbox.sh install --resume
 
 # Test with network issues (simulate)
 # Disable network temporarily and test error handling
@@ -436,12 +450,14 @@ grep ERROR logs/devbox_*.log
 
 ### Testing Checklist
 
-- [ ] Fresh Ubuntu 22.04 install
-- [ ] Fresh Ubuntu 24.04 install
+- [ ] Fresh install on a supported distribution
 - [ ] Install command works
 - [ ] Idempotency — run `install` twice; second run must exit 0 with no modifications
 - [ ] Install with Docker works
+- [ ] Install with profiles works
+- [ ] Resume skips completed steps (`install --resume`)
 - [ ] Doctor command works
+- [ ] Doctor `--json` produces valid JSON
 - [ ] Error handling works correctly
 - [ ] Logs are created with correct ownership
 - [ ] Exit codes are correct
@@ -480,8 +496,8 @@ When adding features, update:
 4. **QUICKREF.md**
    - Quick reference for new features
 
-5. **CHANGELOG.md**
-   - Add entry under [Unreleased]
+5. **FILE_STRUCTURE.md**
+   - File layout changes (new libs, confs, hooks, profiles)
 
 ### Documentation Style
 
@@ -506,7 +522,6 @@ If you have questions:
 
 Contributors will be:
 - Listed in release notes
-- Mentioned in CHANGELOG.md
 - Acknowledged in the project
 
 Thank you for contributing to DevBox! 🎉

@@ -1,7 +1,7 @@
 ---
 plan name: devbox-v2
 plan description: Multi-distro + version managers
-plan status: active
+plan status: completed
 ---
 
 ## Idea
@@ -21,4 +21,15 @@ DevBox v2.0: evolve from Ubuntu/APT-only to multi-distro (Fedora/RHEL) with vers
 
 ## Required Specs
 <!-- SPECS_START -->
+- Multi-distro detection via `lib/distro.sh` (Debian/RHEL/Arch/Alpine/SUSE families) setting `DISTRO_FAMILY`, `PKG_MGR`, `SVC_MGR`, `FIREWALL_TOOL`. Sourced early in `devbox.sh` before other libs.
+- Unified package backends: `pkg_install`, `pkg_update`, `pkg_upgrade`, `pkg_installed` dispatched by distro family. `pkg_update_system()` runs only `pkg_update` by default; full `pkg_upgrade` gated behind `--dist-upgrade`.
+- Canonical package mapping via `lib/pkgmap.sh` (`pkg_map`, `pkg_map_bulk`) so scripts specify distro-agnostic names.
+- Firewalld support in `lib/security.sh` alongside UFW; firewall tool auto-detected from `FIREWALL_TOOL`.
+- Docker install uses the distro-agnostic official script with distro-specific backends in `lib/docker.sh`; Compose v2 is arch-aware.
+- `lib/state.sh` — JSON state file at `/var/lib/devbox/state` tracking completed steps (packages, docker, harden, user). `--resume` flag skips already-completed steps.
+- `lib/version-manager.sh` — installs mise on `--with-mise`; reads `conf/tools.conf` (`nodejs=20.0.0`) and installs via `mise install`.
+- Custom package config split: `conf/apt-packages.conf` (debian) + `conf/dnf-packages.conf` (rhel), with legacy `conf/pkg.conf` kept as backward-compatible fallback.
+- `--json` flag on `doctor` emits a JSON diagnostic report (`report-<timestamp>.json`) alongside the human-readable log.
+- `lib/hooks.sh` — sources executable `conf/hooks/<phase>/*.sh` at 8 lifecycle points (pre/post-install, docker, harden, user). Empty by default, extensible without forking.
+- Exit codes extended: 18 = version manager setup failure, 19 = JSON report generation failure.
 <!-- SPECS_END -->
