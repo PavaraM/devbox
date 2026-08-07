@@ -367,6 +367,14 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
+# Apply output verbosity flags
+if [[ "$VERBOSE" == true ]]; then
+    MIN_LOG_LEVEL="DEBUG"
+fi
+if [[ "$QUIET" == true ]]; then
+    SHOW_CONSOLE=false
+fi
+
 # Open config and exit when no command is requested
 if [[ "$OPEN_CONFIG" == true && -z "$COMMAND" ]]; then
     conf_target=""
