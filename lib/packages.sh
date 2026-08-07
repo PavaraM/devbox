@@ -4,7 +4,10 @@
 pkg_update_system() {
     pkg_update
     log INFO "Package lists updated successfully"
-    pkg_upgrade
+    if [[ "${DIST_UPGRADE:-false}" == true ]]; then
+        pkg_upgrade
+        log INFO "Distribution upgrade completed"
+    fi
 }
 
 pkg_install_wrapper() {

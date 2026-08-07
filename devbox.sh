@@ -85,6 +85,7 @@ Options:
   --setup-user  Create a deploy user with SSH access and groups (requires username)
   --all, -a     Shorthand for --plus-docker --harden (can combine with --setup-user)
   --profile P   Use a profile from conf/profiles/ (repeatable: --profile python-dev --profile node-dev)
+  --dist-upgrade Upgrade all packages (default: update package lists only)
   --dry-run     Show what would be done without making changes
   --verbose, -v Increase log verbosity
   --quiet, -q   Suppress non-error output
@@ -125,12 +126,12 @@ _devbox_completions() {
     local cur prev words cword
     _init_completion || return
     local commands="install doctor distro shell"
-    local opts="--help --version -V --config --plus-docker --harden --setup-user --all --profile --dry-run --verbose --quiet"
+    local opts="--help --version -V --config --plus-docker --harden --setup-user --all --profile --dist-upgrade --dry-run --verbose --quiet"
     if [[ $cword -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$commands $opts" -- "$cur"))
     elif [[ $cword -ge 2 ]]; then
         case "${words[1]}" in
-            install|i) COMPREPLY=($(compgen -W "--plus-docker --harden --setup-user --all --profile --dry-run" -- "$cur")) ;;
+            install|i) COMPREPLY=($(compgen -W "--plus-docker --harden --setup-user --all --profile --dist-upgrade --dry-run" -- "$cur")) ;;
             --profile) local profiles; profiles=$(ls "$SCRIPT_DIR/conf/profiles/"*.conf 2>/dev/null | sed 's|.*/||;s/\.conf$//'); COMPREPLY=($(compgen -W "$profiles" -- "$cur")) ;;
         esac
     fi
@@ -270,6 +271,7 @@ OPEN_CONFIG=false
 export DRY_RUN=false
 HARDEN=false
 SETUP_USER=""
+DIST_UPGRADE=false
 declare -a CLI_PROFILES=()
 VERBOSE=false
 QUIET=false
@@ -319,6 +321,9 @@ while [[ $# -gt 0 ]]; do
         ;;
         --dry-run)
             DRY_RUN=true
+        ;;
+        --dist-upgrade)
+            DIST_UPGRADE=true
         ;;
         --config)
             OPEN_CONFIG=true
@@ -383,6 +388,10 @@ if [[ "$COMMAND" != "install" ]]; then
     fi
     if [[ -n "$SETUP_USER" ]]; then
         echo "Error: --setup-user requires the install command" >&2
+        exit 3
+    fi
+    if [[ "$DIST_UPGRADE" == true ]]; then
+        echo "Error: --dist-upgrade requires the install command" >&2
         exit 3
     fi
 fi
