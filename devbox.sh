@@ -86,6 +86,7 @@ Options:
   --all, -a     Shorthand for --plus-docker --harden (can combine with --setup-user)
   --profile P   Use a profile from conf/profiles/ (repeatable: --profile python-dev --profile node-dev)
   --dist-upgrade Upgrade all packages (default: update package lists only)
+  --resume      Skip steps already completed (from /var/lib/devbox state)
   --dry-run     Show what would be done without making changes
   --verbose, -v Increase log verbosity
   --quiet, -q   Suppress non-error output
@@ -126,12 +127,12 @@ _devbox_completions() {
     local cur prev words cword
     _init_completion || return
     local commands="install doctor distro shell"
-    local opts="--help --version -V --config --plus-docker --harden --setup-user --all --profile --dist-upgrade --dry-run --verbose --quiet"
+    local opts="--help --version -V --config --plus-docker --harden --setup-user --all --profile --dist-upgrade --resume --dry-run --verbose --quiet"
     if [[ $cword -eq 1 ]]; then
         COMPREPLY=($(compgen -W "$commands $opts" -- "$cur"))
     elif [[ $cword -ge 2 ]]; then
         case "${words[1]}" in
-            install|i) COMPREPLY=($(compgen -W "--plus-docker --harden --setup-user --all --profile --dist-upgrade --dry-run" -- "$cur")) ;;
+            install|i) COMPREPLY=($(compgen -W "--plus-docker --harden --setup-user --all --profile --dist-upgrade --resume --dry-run" -- "$cur")) ;;
             --profile) local profiles; profiles=$(ls "$SCRIPT_DIR/conf/profiles/"*.conf 2>/dev/null | sed 's|.*/||;s/\.conf$//'); COMPREPLY=($(compgen -W "$profiles" -- "$cur")) ;;
         esac
     fi
@@ -164,7 +165,7 @@ fi
 # ============================================================================
 
 # Ensure library scripts are executable
-for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.sh config.sh profiles.sh hooks.sh; do
+for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.sh config.sh profiles.sh hooks.sh state.sh; do
     lib_path="$SCRIPT_DIR/lib/$lib"
     log DEBUG "Checking library: $lib_path"
     if [[ ! -f "$lib_path" ]]; then
@@ -177,7 +178,7 @@ for lib in pkgmap.sh packages.sh docker.sh diagnostics.sh reporting.sh security.
 done
 
 # Load remaining libraries
-for lib in pkgmap.sh packages.sh docker.sh reporting.sh diagnostics.sh security.sh config.sh profiles.sh hooks.sh; do
+for lib in pkgmap.sh packages.sh docker.sh reporting.sh diagnostics.sh security.sh config.sh profiles.sh hooks.sh state.sh; do
     if source "$SCRIPT_DIR/lib/$lib" &>> "${logfile:-/dev/null}"; then
         log INFO "\"lib/$lib\" loaded successfully"
     else
@@ -272,6 +273,7 @@ export DRY_RUN=false
 HARDEN=false
 SETUP_USER=""
 DIST_UPGRADE=false
+RESUME=false
 declare -a CLI_PROFILES=()
 VERBOSE=false
 QUIET=false
@@ -324,6 +326,9 @@ while [[ $# -gt 0 ]]; do
         ;;
         --dist-upgrade)
             DIST_UPGRADE=true
+        ;;
+        --resume)
+            RESUME=true
         ;;
         --config)
             OPEN_CONFIG=true
@@ -401,6 +406,10 @@ if [[ "$COMMAND" != "install" ]]; then
         echo "Error: --dist-upgrade requires the install command" >&2
         exit 3
     fi
+    if [[ "$RESUME" == true ]]; then
+        echo "Error: --resume requires the install command" >&2
+        exit 3
+    fi
 fi
 
 # ============================================================================
@@ -437,32 +446,63 @@ case "$COMMAND" in
         hooks_list
     ;;
     install)
-        run_install
-        profile_apply
-        profile_apply_extra
+        if [[ "$RESUME" == true ]]; then
+            state_init
+        fi
+        if [[ "$RESUME" == true ]] && state_done "packages"; then
+            log INFO "Resume: packages already installed, skipping"
+        else
+            run_install
+            profile_apply
+            profile_apply_extra
+            if [[ "$RESUME" == true ]]; then
+                state_mark "packages"
+            fi
+        fi
         if [[ "$INSTALL_DOCKER" == true ]] || profile_wants_docker; then
-            setup_docker
+            if [[ "$RESUME" == true ]] && state_done "docker"; then
+                log INFO "Resume: Docker already installed, skipping"
+            else
+                setup_docker
+                if [[ "$RESUME" == true ]]; then
+                    state_mark "docker"
+                fi
+            fi
         fi
         if [[ "$HARDEN" == true ]] || profile_wants_harden; then
-            hooks_run "pre-harden"
-            if ! ssh_harden; then
-                log ERROR "SSH hardening failed"
-                exit 15
+            if [[ "$RESUME" == true ]] && state_done "harden"; then
+                log INFO "Resume: security hardening already applied, skipping"
+            else
+                hooks_run "pre-harden"
+                if ! ssh_harden; then
+                    log ERROR "SSH hardening failed"
+                    exit 15
+                fi
+                if ! configure_firewall; then
+                    log ERROR "Firewall configuration failed"
+                    exit 16
+                fi
+                hooks_run "post-harden"
+                if [[ "$RESUME" == true ]]; then
+                    state_mark "harden"
+                fi
             fi
-            if ! configure_firewall; then
-                log ERROR "Firewall configuration failed"
-                exit 16
-            fi
-            hooks_run "post-harden"
         fi
         deploy_user="${SETUP_USER:-$(profile_deploy_user)}"
         if [[ -n "$deploy_user" ]]; then
-            hooks_run "pre-user"
-            if ! setup_deploy_user "$deploy_user"; then
-                log ERROR "Deploy user setup failed"
-                exit 17
+            if [[ "$RESUME" == true ]] && state_done "user"; then
+                log INFO "Resume: deploy user already setup, skipping"
+            else
+                hooks_run "pre-user"
+                if ! setup_deploy_user "$deploy_user"; then
+                    log ERROR "Deploy user setup failed"
+                    exit 17
+                fi
+                hooks_run "post-user"
+                if [[ "$RESUME" == true ]]; then
+                    state_mark "user"
+                fi
             fi
-            hooks_run "post-user"
         fi
     ;;
     doctor)
