@@ -566,8 +566,6 @@ DevBox uses granular exit codes for precise error identification:
 
 | Code | Meaning |
 |------|---------|
-| Code | Meaning |
-|------|---------|
 | `0` | Success |
 | `1` | Missing root permissions |
 | `2` | No argument provided |
@@ -586,10 +584,8 @@ DevBox uses granular exit codes for precise error identification:
 | `15` | SSH hardening failure |
 | `16` | Firewall configuration failure |
 | `17` | Deploy user setup failure |
-| `18` | Distro detection failure |
-| `19` | Profile load failure |
-| `20` | Config parse failure |
-| `21` | Hook execution failure |
+| `18` | Version manager setup failure |
+| `19` | JSON report generation failure |
 
 ---
 
